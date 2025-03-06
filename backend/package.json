@@ -6,7 +6,10 @@
   "scripts": {
     "build": "ts-node build.ts",
     "start": "node build/index.js",
-    "dev": "bun run --watch src/index.ts"
+    "dev": "bun run --watch src/index.ts",
+    "prisma:migrate": "prisma migrate dev --name init",
+    "prisma:generate": "prisma generate",
+    "format": "prettier --write ."
   },
   "keywords": [],
   "author": "",
