@@ -1,0 +1,66 @@
+## Tech Stack:
+
+- Backend: Node.js with Express.js and TypeScript
+- Database: PostgreSQL with Prisma ORM
+- Authentication: JSON Web Tokens (JWT)
+- Job Queue: Bull with Redis
+- Frontend: Vite with React, TypeScript, and Tailwind CSS
+- External Services: OpenAI GPT for custom prompt scoring
+
+## Workflow Setup
+
+- Use `npm` when adding dependencies (e.g., `npm add <package>`).
+- Be mindful of dependency scope:
+  - Use `-D` or `--save-dev` for development dependencies (e.g., `npm add -D typescript`).
+  - Use no flag for production dependencies (e.g., `npm add express`).
+- Manage Prisma schema updates with `npm exec prisma migrate dev --name <migration-name>`.
+
+## Coding Standards
+
+- Use TypeScript for all new code in both backend (`src/`) and frontend (`src/`) directories.
+- Define proper TypeScript types for all variables, functions, and return types (e.g., `const fn = (param: string): Promise<number> => {...}`).
+
+- Implement proper error handling:
+  - Backend: Use try-catch blocks and return appropriate HTTP status codes (e.g., `res.status(400).json({ error: 'Invalid input' })`).
+  - Frontend: Handle API errors with user-friendly messages (e.g., `setError('Login failed')`).
+- Validate inputs:
+  - Backend: Check request bodies/parameters (e.g., ensure `email` and `password` are present in `/register`).
+  - Frontend: Validate form inputs before submission (e.g., email format, password length).
+- Always use relative imports (e.g., `import { prisma } from '../prisma/client';` instead of absolute paths).
+
+## Best Practices
+
+- Ensure secure, efficient code following RESTful API best practices:
+  - Use appropriate HTTP methods (e.g., POST for `/sessions`, GET for `/health`).
+  - Return consistent response structures (e.g., `{ data: {...}, error: null }` or `{ data: null, error: 'message' }`).
+  - Secure endpoints with JWT middleware (e.g., verify `Authorization` header for protected routes).
+- Respect SOLID principles:
+  - Single Responsibility: Separate concerns (e.g., `src/routes/auth.ts` for auth, `src/queue/resumeProcessor.ts` for queue logic).
+  - Open/Closed: Design extensible evaluation metrics (e.g., allow new metrics without modifying core logic).
+  - Liskov Substitution: N/A (no heavy inheritance expected).
+  - Interface Segregation: Keep route handlers focused (e.g., one endpoint per task).
+  - Dependency Inversion: Inject dependencies (e.g., Prisma client via `src/prisma/client.ts`).
+- Focus on performance and readability:
+  - Backend: Minimize database queries (e.g., use Prisma’s `include` for eager loading where needed).
+  - Frontend: Optimize React components with memoization (e.g., `React.memo`) and avoid unnecessary re-renders.
+  - Use clear variable/function names (e.g., `extractResumeText` instead of `process`).
+  - Add comments for complex logic (e.g., evaluation metric calculations).
+
+## Project-Specific Guidelines
+
+- Always be mindful to create files an edit fiels in the respective dir and not in the root of the project. If the edit it related to a backend route, write the edit inside the backend/src/ and likewise for frontend code. NEVER WRTITE TYPESCRIPT CODE IN THE ROOT, ALWAYS INSIDE BACKEND OR FRONTEND DIRECTORIES.
+
+- **Backend**:
+  - Structure code in `src/` with subdirectories: `routes/`, `entities/` (if needed beyond Prisma), `queue/`, `services/`.
+  - Use Prisma for all database interactions (e.g., `prisma.user.create({...})`).
+  - Handle file uploads with `multer` and store in `uploads/` directory.
+  - Process resumes asynchronously with Bull queues (e.g., `resumeQueue.add({...})`).
+- **Frontend**:
+  - Structure code in `src/` with subdirectories: `pages/`, `components/`, `services/`, `context/`.
+  - Use Tailwind CSS for styling (e.g., `className="flex flex-col p-4"`).
+  - Always import React Router as `import { BrowserRouter as Router, Routes, Route, Link } from "react-router"`. There is no module called `react-router-dom`
+  - Manage state with React Context (e.g., `AuthContext` for authentication).
+  - Connect to backend via `axios` in `src/services/api.ts`.
+- **Environment Variables**:
+  - Store in `.env` with appropriate prefixes (e.g., `VITE_API_URL` for frontend, `DATABASE_URL` for backend).
+  - Never commit sensitive values (e.g., `JWT_SECRET`, `OPENAI_API_KEY`)—use `.env.example` for templates.
