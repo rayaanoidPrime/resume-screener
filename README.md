@@ -19,7 +19,7 @@ Welcome to the project! This guide will walk you through **forking the repositor
 4. Add the original repository as an upstream remote to keep your fork updated:  
 
    ```sh
-   git remote add upstream https://github.com/ORIGINAL_OWNER/PROJECT_NAME.git
+   git remote add upstream https://github.com/rayaanoidprime/resume-screener.git
    ```
 
 5. Fetch the latest changes:  
@@ -33,18 +33,7 @@ Welcome to the project! This guide will walk you through **forking the repositor
 ## **🔧 Setting Up Your Development Environment**  
 
 ### **2️⃣ Install Dependencies**  
-We use **pnpm** to manage dependencies. Install them by running:  
-
-```sh
-pnpm install
-```
-
-Ensure you are using **Node.js (LTS version)** and **pnpm** installed globally:
-
-```sh
-corepack enable
-corepack prepare pnpm@latest --activate
-```
+Install dependencies via nom for each - backend as well as frontend.
 
 ### **3️⃣ Install Docker (Optional but Recommended)**  
 For local development, we recommend running dependencies (like MongoDB, Redis) via **Docker**.  
