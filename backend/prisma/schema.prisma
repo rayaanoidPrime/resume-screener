@@ -29,11 +29,13 @@ model Session {
 }
 
 model Candidate {
-  id        String    @id @default(uuid())
-  sessionId String
-  createdAt DateTime  @default(now())
-  session   Session   @relation(fields: [sessionId], references: [id])
-  resumes   Resume[]
+  id          String   @id @default(uuid())
+  sessionId   String
+  session     Session  @relation(fields: [sessionId], references: [id])
+  resumes     Resume[]
+  evaluations Evaluation[]
+
+  @@index([sessionId])
 }
 
 model Resume {
@@ -44,4 +46,15 @@ model Resume {
   status       String    @default("processed")
   createdAt    DateTime  @default(now())
   candidate    Candidate @relation(fields: [candidateId], references: [id])
+}
+
+model Evaluation {
+  id          String   @id @default(uuid())
+  candidateId String
+  candidate   Candidate @relation(fields: [candidateId], references: [id])
+  keywordScore Float
+  totalScore   Float
+  createdAt    DateTime @default(now())
+
+  @@index([candidateId])
 } 
