@@ -1,15 +1,14 @@
 import Queue from "bull";
 import { prisma } from "../prisma/client";
-import * as pdfjsLib from "pdfjs-dist";
+import pdfParse from "pdf-parse";
 import mammoth from "mammoth";
 import fs from "fs/promises";
-import path from "path";
+import { createAIProvider } from "../ai/providers";
+import { aiConfig } from "../ai/config";
+import { parseResumePrompt } from "../ai/prompts";
 
-// Set up pdfjs worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = path.join(
-  process.cwd(),
-  "node_modules/pdfjs-dist/build/pdf.worker.mjs"
-);
+// Create AI provider instance
+const aiProvider = createAIProvider(aiConfig);
 
 // Create the queue
 const resumeQueue = new Queue(
@@ -22,37 +21,23 @@ interface ResumeJobData {
   filePath: string;
   sessionId: string;
   mimeType: string;
+  resumeId: string;
 }
 
-// Extract text from PDF
 async function extractPdfText(filePath: string): Promise<string> {
   try {
-    // Read the file as a buffer
-    const buffer = await fs.readFile(filePath);
+    console.log(`Extracting text from PDF: ${filePath}`);
 
-    // Ensure we have a valid buffer
-    if (!Buffer.isBuffer(buffer)) {
-      throw new Error("Invalid file data: not a buffer");
-    }
+    // Read the file
+    const dataBuffer = await fs.readFile(filePath);
 
-    // Convert Buffer to Uint8Array
-    const data = new Uint8Array(buffer);
+    // Parse the PDF
+    const data = await pdfParse(dataBuffer);
 
-    // Load the PDF document
-    const pdf = await pdfjsLib.getDocument({ data }).promise;
-    let fullText = "";
-
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const textContent = await page.getTextContent();
-      const pageText = textContent.items
-        .filter((item) => "str" in item)
-        .map((item) => (item as any).str)
-        .join(" ");
-      fullText += pageText + "\n";
-    }
-
-    return fullText.trim();
+    console.log(
+      `Successfully extracted ${data.text.length} characters from PDF`
+    );
+    return data.text;
   } catch (error) {
     console.error("PDF extraction error:", error);
     throw new Error("Failed to extract text from PDF");
@@ -75,6 +60,17 @@ async function extractDocxText(filePath: string): Promise<string> {
   } catch (error) {
     console.error("DOCX extraction error:", error);
     throw new Error("Failed to extract text from DOCX");
+  }
+}
+
+// Parse resume text using configured AI provider
+async function parseResume(extractedText: string): Promise<any> {
+  try {
+    const prompt = parseResumePrompt(extractedText);
+    return await aiProvider.completion(prompt);
+  } catch (error) {
+    console.error("Resume parsing error:", error);
+    throw new Error("Failed to parse resume");
   }
 }
 
@@ -109,6 +105,16 @@ resumeQueue.process(async (job) => {
     // Update progress to 50%
     await job.progress(50);
 
+    // Parse resume with GPT
+    let structuredData = null;
+    try {
+      structuredData = await parseResume(extractedText);
+      await job.progress(75);
+    } catch (error) {
+      console.error("GPT parsing error:", error);
+      // Continue with the process even if GPT parsing fails
+    }
+
     // Create candidate and resume records
     const candidate = await prisma.candidate.create({
       data: {
@@ -117,6 +123,7 @@ resumeQueue.process(async (job) => {
           create: {
             filePath,
             extractedText,
+            structuredData,
             status: extractedText ? "processed" : "review_needed",
           },
         },

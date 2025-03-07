@@ -23,6 +23,7 @@ interface SessionResponse {
 
 interface ResumeFile {
   jobId: string;
+  resumeId: string;
   filePath: string;
   mimeType: string;
 }
@@ -108,7 +109,7 @@ export const sessionApi = {
     token: string
   ): Promise<ResumeUpdateResponse> => {
     const response = await api.patch(
-      `/resumes/${resumeId}`,
+      `/sessions/resumes/${resumeId}`,
       { extractedText },
       {
         headers: {

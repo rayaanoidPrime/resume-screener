@@ -2,9 +2,6 @@ import { Router } from "express";
 import multer from "multer";
 import { v4 as uuidv4 } from "uuid";
 import path from "path";
-import * as pdfjsLib from "pdfjs-dist";
-import mammoth from "mammoth";
-import fs from "fs/promises";
 import { prisma } from "../prisma/client";
 import { authenticateToken } from "../middleware/auth";
 import { resumeQueue } from "../queue/resumeProcessor";
@@ -20,12 +17,6 @@ const storage = multer.diskStorage({
     cb(null, `${uniqueId}${ext}`);
   },
 });
-
-// Set up pdfjs worker (required for Node.js environment)
-pdfjsLib.GlobalWorkerOptions.workerSrc = path.join(
-  process.cwd(),
-  "node_modules/pdfjs-dist/build/pdf.worker.mjs"
-);
 
 const fileFilter = (
   req: Express.Request,
@@ -50,41 +41,6 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
 });
 
-// Extract text from PDF
-async function extractPdfText(filePath: string): Promise<string> {
-  // Read the file as a buffer
-  const buffer = await fs.readFile(filePath);
-
-  // Convert Buffer to Uint8Array (this is what pdfjs-dist requires)
-  const data = new Uint8Array(buffer);
-
-  // Load the PDF document
-  const pdf = await pdfjsLib.getDocument({ data }).promise;
-  let fullText = "";
-
-  // Process each page
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const textContent = await page.getTextContent();
-
-    // Extract text from the content items
-    const pageText = textContent.items
-      .filter((item) => "str" in item)
-      .map((item) => (item as any).str)
-      .join(" ");
-
-    fullText += pageText + "\n";
-  }
-
-  return fullText.trim();
-}
-
-// Extract text from DOCX
-async function extractDocxText(filePath: string): Promise<string> {
-  const result = await mammoth.extractRawText({ path: filePath });
-  return result.value.trim();
-}
-
 // Resume upload endpoint
 router.post(
   "/:sessionId/resumes",
@@ -93,6 +49,12 @@ router.post(
   async (req, res) => {
     try {
       const { sessionId } = req.params;
+
+      if (!sessionId) {
+        res.status(400).json({ error: "Session ID is required" });
+        return;
+      }
+
       const files = req.files as Express.Multer.File[];
 
       if (!files || files.length === 0) {
@@ -105,14 +67,33 @@ router.post(
         // Ensure file path is absolute
         const absolutePath = path.resolve(file.path);
 
+        // Create a candidate record first
+        const candidate = await prisma.candidate.create({
+          data: {
+            sessionId,
+          },
+        });
+
+        // Create a resume record
+        const resume = await prisma.resume.create({
+          data: {
+            candidateId: candidate.id,
+            filePath: file.path,
+            status: "processing",
+          },
+        });
+
         const job = await resumeQueue.add({
           filePath: absolutePath,
           sessionId,
           mimeType: file.mimetype,
+          resumeId: resume.id, // Pass resumeId to the queue
         });
+
         return {
           jobId: job.id,
-          filePath: file.path, // Keep relative path for response
+          resumeId: resume.id, // Include resumeId in response
+          filePath: file.path,
           mimeType: file.mimetype,
         };
       });
@@ -125,6 +106,7 @@ router.post(
         jobIds,
         files: results.map((r) => ({
           jobId: r.jobId,
+          resumeId: r.resumeId, // Include resumeId in response
           filePath: r.filePath,
           mimeType: r.mimeType,
         })),
@@ -143,9 +125,10 @@ router.get(
   async (req, res) => {
     try {
       const { jobIds } = req.query;
+      const { sessionId } = req.params;
 
-      if (!jobIds || typeof jobIds !== "string") {
-        res.status(400).json({ error: "Job IDs are required" });
+      if (!jobIds || typeof jobIds !== "string" || !sessionId) {
+        res.status(400).json({ error: "Job IDs and Session ID are required" });
         return;
       }
 

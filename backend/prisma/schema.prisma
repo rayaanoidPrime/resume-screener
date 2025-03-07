@@ -43,6 +43,7 @@ model Resume {
   candidateId  String
   filePath     String
   extractedText String?
+  structuredData Json?
   status       String    @default("processed")
   createdAt    DateTime  @default(now())
   candidate    Candidate @relation(fields: [candidateId], references: [id])

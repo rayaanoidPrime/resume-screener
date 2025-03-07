@@ -20,9 +20,11 @@ interface ResumeUploadResult {
   extractedText?: string;
   files: {
     jobId: string;
+    resumeId: string;
     filePath: string;
     mimeType: string;
   }[];
+  resumeId?: string;
 }
 
 interface EditingResume {
@@ -40,6 +42,13 @@ interface SelectedCandidate {
   candidateId: string;
   keywordScore: number;
   totalScore: number;
+}
+
+interface ViewingResume {
+  resumeId: string;
+  filePath: string;
+  mimeType: string;
+  extractedText: string;
 }
 
 export default function SessionDetails() {
@@ -63,6 +72,9 @@ export default function SessionDetails() {
   const [isEvaluating, setIsEvaluating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollingIntervalRef = useRef<number | undefined>(undefined);
+  const [viewingResume, setViewingResume] = useState<ViewingResume | null>(
+    null
+  );
 
   useEffect(() => {
     return () => {
@@ -195,7 +207,7 @@ export default function SessionDetails() {
       );
       setUploadedResumes((prev) =>
         prev.map((resume) =>
-          resume.jobIds.includes(resumeId)
+          resume.files.some((file) => file.resumeId === resumeId)
             ? {
                 ...resume,
                 extractedText: updatedResume.extractedText,
@@ -209,29 +221,6 @@ export default function SessionDetails() {
       setError(err instanceof Error ? err.message : "Failed to update resume");
     } finally {
       setSaving(false);
-    }
-  };
-
-  const renderFilePreview = (resume: ResumeUploadResult) => {
-    const file = resume.files[0];
-    if (!file) return null;
-
-    if (file.mimeType === "application/pdf") {
-      return (
-        <iframe
-          src={`/uploads/${file.filePath}`}
-          className="w-full h-96 border rounded-lg"
-          title="PDF Preview"
-        />
-      );
-    } else {
-      return (
-        <div className="w-full h-96 border rounded-lg p-4 overflow-auto bg-gray-50">
-          <pre className="text-sm whitespace-pre-wrap">
-            {resume.extractedText || "No text available"}
-          </pre>
-        </div>
-      );
     }
   };
 
@@ -287,65 +276,138 @@ export default function SessionDetails() {
           </div>
         </form>
 
-        {Object.keys(jobStatuses).length > 0 && (
-          <div className="mt-4">
-            <h2 className="text-xl font-semibold mb-2">Processing Status</h2>
-            <div className="space-y-2">
-              {Object.entries(jobStatuses).map(([jobId, job]) => (
-                <div
-                  key={jobId}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                >
-                  <span className="text-sm font-medium text-gray-700">
-                    Job {jobId.slice(0, 8)}...
-                  </span>
-                  <span
-                    className={`text-sm font-medium px-2 py-1 rounded-full ${
-                      job.status === "completed"
-                        ? "bg-green-100 text-green-800"
-                        : job.status === "failed"
-                        ? "bg-red-100 text-red-800"
-                        : "bg-yellow-100 text-yellow-800"
-                    }`}
-                  >
-                    {job.status === "completed"
-                      ? "Completed"
-                      : job.status === "failed"
-                      ? "Failed"
-                      : `Processing ${job.progress}%`}
-                  </span>
-                </div>
-              ))}
+        {uploadedResumes.length > 0 && (
+          <div className="mt-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              Processed Resumes
+            </h2>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Resume #
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Job ID
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Status
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {uploadedResumes.map((resume, index) => {
+                    const jobId = resume.jobIds[0];
+                    const jobStatus = jobStatuses[jobId];
+                    return (
+                      <tr key={jobId}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          Resume #{index + 1}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {jobId.slice(0, 8)}...
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span
+                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                            ${
+                              jobStatus?.status === "completed"
+                                ? "bg-green-100 text-green-800"
+                                : jobStatus?.status === "failed"
+                                ? "bg-red-100 text-red-800"
+                                : "bg-yellow-100 text-yellow-800"
+                            }`}
+                          >
+                            {jobStatus?.status === "completed"
+                              ? "Completed"
+                              : jobStatus?.status === "failed"
+                              ? "Failed"
+                              : jobStatus?.status === "waiting"
+                              ? "Waiting"
+                              : "Processing"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <button
+                            onClick={() =>
+                              setViewingResume({
+                                resumeId: resume.files[0]?.resumeId || "",
+                                filePath: resume.files[0]?.filePath || "",
+                                mimeType: resume.files[0]?.mimeType || "",
+                                extractedText: resume.extractedText || "",
+                              })
+                            }
+                            className="text-blue-600 hover:text-blue-900"
+                          >
+                            View/Edit
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
 
-        {uploadedResumes.length > 0 && (
-          <div className="space-y-4 mt-6">
-            <h2 className="text-xl font-semibold text-gray-900">
-              Processed Resumes
-            </h2>
-            {uploadedResumes.map((resume, index) => (
-              <div key={resume.jobIds[0]} className="border rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-500">
-                    Resume #{index + 1}
-                  </span>
-                  <span
-                    className={`text-sm font-medium px-2 py-1 rounded-full ${
-                      resume.jobIds.length > 0
-                        ? "bg-green-100 text-green-800"
-                        : "bg-yellow-100 text-yellow-800"
-                    }`}
-                  >
-                    {resume.jobIds.length > 0 ? "Processed" : "Review Needed"}
-                  </span>
+        {/* View/Edit Resume Modal */}
+        {viewingResume && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-6xl h-[90vh] flex flex-col">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold">Resume Preview & Edit</h3>
+                <button
+                  onClick={() => setViewingResume(null)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="flex gap-4 flex-1 min-h-0">
+                <div className="w-1/2 flex flex-col">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">
+                    Document Preview
+                  </h4>
+                  <div className="flex-1 border rounded-lg overflow-hidden">
+                    {viewingResume.mimeType === "application/pdf" ? (
+                      <iframe
+                        src={`/uploads/${viewingResume.filePath}`}
+                        className="w-full h-full"
+                        title="PDF Preview"
+                      />
+                    ) : (
+                      <div className="w-full h-full p-4 overflow-auto bg-gray-50">
+                        <pre className="text-sm whitespace-pre-wrap">
+                          Document preview not available
+                        </pre>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="flex gap-4">
-                  <div className="w-1/2">{renderFilePreview(resume)}</div>
-                  <div className="w-1/2">
-                    {editingResume?.id === resume.jobIds[0] ? (
-                      <div className="space-y-2">
+                <div className="w-1/2 flex flex-col">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">
+                    Extracted Text
+                  </h4>
+                  <div className="flex-1 flex flex-col">
+                    {editingResume?.id === viewingResume.resumeId ? (
+                      <>
                         <textarea
                           value={editingResume.extractedText}
                           onChange={(e) =>
@@ -354,7 +416,7 @@ export default function SessionDetails() {
                               extractedText: e.target.value,
                             })
                           }
-                          className="w-full h-96 p-2 border rounded-lg resize-none"
+                          className="flex-1 p-4 border rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 mb-4"
                         />
                         <div className="flex justify-end gap-2">
                           <button
@@ -366,7 +428,7 @@ export default function SessionDetails() {
                           <button
                             onClick={() =>
                               handleSave(
-                                resume.jobIds[0],
+                                editingResume.id,
                                 editingResume.extractedText
                               )
                             }
@@ -376,20 +438,20 @@ export default function SessionDetails() {
                             {saving ? "Saving..." : "Save"}
                           </button>
                         </div>
-                      </div>
+                      </>
                     ) : (
-                      <div className="space-y-2">
-                        <div className="w-full h-96 p-2 border rounded-lg overflow-auto bg-gray-50">
+                      <>
+                        <div className="flex-1 p-4 border rounded-lg overflow-auto bg-gray-50 mb-4">
                           <pre className="text-sm whitespace-pre-wrap">
-                            {resume.extractedText || "No text available"}
+                            {viewingResume.extractedText || "No text available"}
                           </pre>
                         </div>
                         <div className="flex justify-end">
                           <button
                             onClick={() =>
                               setEditingResume({
-                                id: resume.jobIds[0],
-                                extractedText: resume.extractedText || "",
+                                id: viewingResume.resumeId,
+                                extractedText: viewingResume.extractedText,
                               })
                             }
                             className="px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-md hover:bg-blue-600"
@@ -397,12 +459,12 @@ export default function SessionDetails() {
                             Edit
                           </button>
                         </div>
-                      </div>
+                      </>
                     )}
                   </div>
                 </div>
               </div>
-            ))}
+            </div>
           </div>
         )}
 
