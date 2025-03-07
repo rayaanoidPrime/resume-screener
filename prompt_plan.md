@@ -186,13 +186,93 @@ Frontend: In src/pages/SessionDetails.tsx from Prompt 5, add a file input (accep
 
 **Context**: Builds on Prompt 5 with resume upload functionality, using Prisma for database operations and Vite/React for the frontend.
 
+#### Prompt 7: Bulk Upload & Async Processing
+
+```text
+Backend: In the backend from Prompt 6, install `bull` and `@types/bull` for job queue management. Set up a Redis connection using `REDIS_URL` from the `.env` file (e.g., `REDIS_URL=redis://localhost:6379`). Update the POST `/sessions/:sessionId/resumes` endpoint in `src/routes/resumes.ts` to handle multiple files by modifying the `multer` configuration to use `upload.array('files')`. For each uploaded file, generate a unique filename with `uuid`, save it to `uploads/`, and add a job to a Bull queue named 'resume-processing' with the file path, `sessionId`, and other necessary data. Return a 202 status with `{ jobIds }` (an array of job IDs) immediately. Create a new file `src/queue/resumeProcessor.ts` to define the queue processor: import the Bull queue, process each job by extracting text using `pdf-parse` (for PDFs) or `mammoth` (for DOCX), create a `Candidate` record with `sessionId` and a `Resume` record with `extractedText` and `status` ("processed" or "review_needed") using Prisma, update job progress (e.g., 50% after extraction, 100% after database save), and handle errors by marking the job as failed. Add a GET `/sessions/:sessionId/resumes/status` endpoint that accepts query parameters for job IDs (e.g., `?jobIds=id1,id2`) and returns their statuses from the Bull queue (e.g., `{ jobId: status }` where status can be "waiting", "active", "completed", "failed").
+
+Frontend: In the frontend from Prompt 6, update the file input in `src/pages/SessionDetails.tsx` to allow multiple files by adding the `multiple` attribute (`<input type="file" accept=".pdf,.docx" multiple />`). On form submit, create a `FormData` object with all selected files and send a POST request to `/sessions/:sessionId/resumes` with the JWT token in headers via `src/services/api.ts`. Upon receiving the response with `{ jobIds }`, display a list of uploaded files with an initial status of "Processing" using Tailwind classes (e.g., `text-yellow-500`, `flex`, `gap-2`). Implement a polling mechanism using `setInterval` (e.g., every 2 seconds) to call GET `/sessions/:sessionId/resumes/status` with the `jobIds`, updating the UI with the latest statuses: "Completed" (`text-green-500`) or "Error" (`text-red-500`). Clear the interval when all jobs are completed or failed.
+```
+
+**Context**: Extends the single resume upload from Prompt 6 to handle multiple files asynchronously using a Bull/Redis job queue, with real-time status updates in the UI.
+
+---
+
+#### Prompt 8: Manual Correction
+
+```text
+Backend: In the backend from Prompt 7, add a PATCH `/resumes/:resumeId` endpoint in `src/routes/resumes.ts` that requires JWT authentication by verifying the token from the `Authorization` header. Accept `{ extractedText }` in the request body, update the corresponding `Resume` record using `prisma.resume.update` with the new `extractedText` and set `status` to "processed", and return the updated resume data (e.g., `{ id, extractedText, status }`) with a 200 status. Handle errors with a 404 status if the resume is not found.
+
+Frontend: In `src/pages/SessionDetails.tsx` from Prompt 7, for resumes with `status` "review_needed" (fetched from the backend), display a side-by-side view: on the left, show the original file using an `<iframe>` for PDFs (e.g., `<iframe src="/uploads/<filePath>" />`) or a simple text display for DOCX, styled with Tailwind (e.g., `w-1/2`, `h-96`, `border`); on the right, provide an editable `<textarea>` pre-filled with the current `extractedText`, styled with Tailwind (e.g., `w-1/2`, `p-2`, `border`, `h-96`). Add a "Save" button below the textarea (e.g., `bg-blue-500`, `text-white`, `p-2`, `rounded`). On click, send a PATCH request to `/resumes/:resumeId` with the updated `extractedText` via `src/services/api.ts`, including the JWT token. On success, update the UI to reflect the new `status` as "processed" and display the updated text in a non-editable format (e.g., `<div class="p-4 bg-white border">`).
+```
+
+**Context**: Adds manual correction capabilities for resumes that failed automatic text extraction, integrating backend updates with a frontend editing interface.
+
+---
+
+#### Prompt 9: Basic Evaluation
+
+```text
+Backend: In the backend from Prompt 8, define basic evaluation metrics logic in `src/services/evaluation.ts`. For simplicity, implement keyword matching: extract keywords from the `jobDescription` (split by spaces, filter common words) and count their occurrences in the `extractedText`. Add an `Evaluation` model to `prisma/schema.prisma` with fields: `id` (uuid, primary key), `candidateId` (uuid, references `Candidate.id`), `keywordScore` (float), `totalScore` (float), `createdAt` (datetime). Run `npx prisma migrate dev --name add_evaluation` to apply the changes. Create an evaluation function in `src/services/evaluation.ts` that takes `jobDescription` and `extractedText`, calculates a `keywordScore` (e.g., matches/totalKeywords), and sets `totalScore` to `keywordScore` for now. Add a POST `/sessions/:sessionId/evaluate` endpoint in `src/routes/sessions.ts` that requires JWT authentication, retrieves all resumes for the session with `prisma.resume.findMany({ where: { candidate: { sessionId } } })`, evaluates each using the function, creates `Evaluation` records with `prisma.evaluation.create`, and returns the evaluation results (e.g., `{ candidateId, keywordScore, totalScore }`).
+
+Frontend: In `src/pages/SessionDetails.tsx` from Prompt 8, add an "Evaluate" button (e.g., `bg-blue-500`, `text-white`, `p-2`, `rounded`). On click, send a POST request to `/sessions/:sessionId/evaluate` with the JWT token via `src/services/api.ts`. On success, display a ranked list of candidates based on `totalScore`, showing each candidate’s name (or resume ID if name extraction is added later) and `totalScore`, styled with Tailwind (e.g., `flex`, `flex-col`, `gap-2`, `p-4`, `bg-gray-100`). For each candidate, allow clicking to open a modal (using a simple state toggle with `useState`) displaying detailed scores (initially just `keywordScore`), styled with Tailwind (e.g., `fixed`, `bg-white`, `p-6`, `rounded`, `shadow-lg`).
+```
+
+**Context**: Implements basic evaluation using keyword matching, displaying ranked candidates with scores and details, setting the stage for advanced metrics.
+
+---
+
+#### Prompt 10: LLM Integration
+
+```text
+Backend: In the backend from Prompt 9, install the `openai` package. Add `OPENAI_API_KEY` to the `.env` file. Extend the evaluation function in `src/services/evaluation.ts` to include LLM scoring: use the OpenAI GPT API (e.g., `gpt-3.5-turbo`) with a prompt like "Rate how well this resume matches the job description on a scale of 0 to 1" followed by the `jobDescription` and `extractedText`. Extract the score from the API response (e.g., parse a number between 0 and 1). Update the `Evaluation` model in `prisma/schema.prisma` to add an `llmScore` field (float), and re-run `npx prisma migrate dev --name add_llm_score`. Modify the POST `/sessions/:sessionId/evaluate` endpoint to accept an optional `customPrompt` in the request body (e.g., `{ customPrompt: "Evaluate based on technical skills" }`), using it instead of the default prompt if provided, and include the `llmScore` in the evaluation results.
+
+Frontend: In `src/pages/SessionDetails.tsx` from Prompt 9, above the "Evaluate" button, add an optional `<input>` field for a custom prompt, styled with Tailwind (e.g., `w-full`, `p-2`, `border`, `mb-2`). When the "Evaluate" button is clicked, include the custom prompt in the POST request to `/sessions/:sessionId/evaluate` if provided, via `src/services/api.ts`. Update the ranked list and modal to display `llmScore` alongside `keywordScore` when available, with Tailwind styling (e.g., `grid`, `grid-cols-2`, `gap-2` for scores).
+```
+
+**Context**: Enhances evaluation with OpenAI GPT for custom prompt-based scoring, integrating LLM capabilities into the existing system.
+
+---
+
+#### Prompt 11: Dynamic Weights & Updates
+
+```text
+Backend: In the backend from Prompt 10, update the POST `/sessions/:sessionId/evaluate` endpoint to accept optional weights in the request body (e.g., `{ keywordWeight: 0.5, llmWeight: 0.5 }`). Modify the evaluation logic in `src/services/evaluation.ts` to calculate `totalScore` as a weighted sum (e.g., `keywordScore * keywordWeight + llmScore * llmWeight`), defaulting to equal weights (e.g., 0.5 each) if not provided. Validate that weights sum to 1 or normalize them if they don’t, and return the updated scores in the response.
+
+Frontend: In `src/pages/SessionDetails.tsx` from Prompt 10, below the custom prompt input, add sliders for each metric’s weight (e.g., `keywordWeight` and `llmWeight`) using HTML `<input type="range" min="0" max="1" step="0.1" />`, styled with Tailwind (e.g., `w-full`, `mb-2`). Use `useState` to track weight values, defaulting to 0.5 each. When weights change or the "Evaluate" button is clicked, send the weights in the POST request to `/sessions/:sessionId/evaluate` via `src/services/api.ts`, and update the ranked list and modal in real-time with the new `totalScore` values, maintaining Tailwind styling.
+```
+
+**Context**: Adds dynamic weight adjustments for evaluation metrics, allowing real-time ranking updates based on user preferences.
+
+---
+
+#### Prompt 12: Visualizations
+
+```text
+Frontend: In the frontend from Prompt 11, install `recharts` for charting. In `src/pages/SessionDetails.tsx`, for each candidate in the ranked list, add a "View Chart" button (e.g., `bg-blue-500`, `text-white`, `p-1`, `rounded`). On click, display a modal with a radar chart using `recharts` `<RadarChart>` to visualize `keywordScore` and `llmScore` for the selected candidate, styled with Tailwind (e.g., `w-full`, `h-96`). Add toggle buttons (e.g., `bg-gray-200`, `p-2`, `rounded`) to switch between chart types: radar (default), bar (`<BarChart>`), and heatmap (simulated with a grid of colored squares using `flex`, `flex-wrap`). Implement export features: add an "Export Chart" button to save the current chart as PNG using `html2canvas` (install it), and an "Export Data" button to download evaluation data as CSV using `papaparse` (install it), including candidate ID and scores.
+```
+
+**Context**: Enhances the UI with interactive visualizations of candidate scores, offering multiple chart types and export options for analysis.
+
+---
+
+#### Prompt 13: Session Management
+
+```text
+Backend: In the backend from Prompt 11, ensure all session data (job description, resumes, evaluations) is persisted via Prisma models (already set up). Add a GET `/sessions` endpoint in `src/routes/sessions.ts` that requires JWT authentication, retrieves all sessions for the authenticated user with `prisma.session.findMany({ where: { userId } })`, and returns them (e.g., `{ id, jobDescription, createdAt }`). Update the POST `/sessions/:sessionId/evaluate` endpoint to allow re-running evaluations with updated criteria (e.g., new weights or prompts), re-processing existing resumes.
+
+Frontend: In `src/pages/Dashboard.tsx` from Prompt 4, fetch and display a list of saved sessions from GET `/sessions` via `src/services/api.ts`, styled with Tailwind (e.g., `grid`, `grid-cols-2`, `gap-4`). For each session, show `jobDescription` and a "View" button (e.g., `bg-blue-500`, `text-white`, `p-2`, `rounded`). On click, redirect to `/sessions/:sessionId` using `react-router-dom`. In `src/pages/SessionDetails.tsx` from Prompt 12, allow re-running evaluations by reusing the "Evaluate" button with current weights and prompt, updating the UI with new results.
+```
+
+**Context**: Completes the app with session management, enabling users to view past sessions and re-run evaluations with updated parameters.
+
 ---
 
 ## Review & Next Steps
 
-- **Technology Updates**:
-  - Replaced TypeORM with Prisma for simpler setup and better TypeScript integration.
-  - Switched from Create React App to Vite with React, leveraging ESBuild for faster bundling.
-- **Integration**: Each prompt connects backend APIs to frontend UI (e.g., Prompt 4 wires Prompt 2’s APIs to Prompt 3’s forms).
-- **Size**: Steps are focused and suitable for LLM generation (e.g., backend setup vs. authentication).
-- **Progress**: Completing these yields a functional app with login, session creation, and single resume upload.
+- **Alignment with `todo.md`**: These prompts cover all remaining items (Iterations 4-10), matching the tasks in `todo.md` (e.g., bulk upload with Bull, LLM integration with OpenAI, visualizations with `recharts`).
+- **Format Consistency**: Each prompt follows the same structure as Prompts 1-6: detailed backend and frontend instructions, incremental build, and a clear context.
+- **Full-Stack Integration**: Prompts integrate backend APIs with frontend UI (e.g., Prompt 7 connects Bull queue status to polling UI).
+- **Progress**: Completing these yields a fully functional Resume Screener Web App with all planned features.
+
+These prompts can be directly appended to the `prompt_plan.md` file under the "Series of Prompts for Code-Generation LLM" section, extending the existing plan seamlessly. If further refinements or additional details are needed, please let me know!
