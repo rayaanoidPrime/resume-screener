@@ -8,106 +8,106 @@ Below is the updated `todo.md` file for the Resume Screener Web App, reflecting 
 
 ### Backend Setup
 
-- [ ] Initialize Node.js project with Express.js and TypeScript
-- [ ] Install dependencies: `express`, `typescript`, `@prisma/client`, `prisma`, `ts-node`, `@types/express`
-- [ ] Set up Prisma with `npx prisma init`, configure database URL in `.env` (e.g., `DATABASE_URL=postgresql://USER:PASSWORD@HOST:PORT/DB_NAME`)
-- [ ] Define `User` model in `prisma/schema.prisma` with fields: `id` (uuid, primary key), `email` (string, unique), `passwordHash` (string), `createdAt` (datetime)
-- [ ] Run `npx prisma migrate dev --name init` to create initial migration and apply schema to database
-- [ ] Configure TypeScript with `tsconfig.json` (target: ES6, module: commonjs, strict: true)
-- [ ] Create basic Express server in `src/index.ts` with GET `/health` endpoint returning `{ status: "Server is running" }` (200 status)
-- [ ] Set up `.env` file with `dotenv` for environment variables (PORT, DATABASE_URL)
-- [ ] Create `src/prisma/client.ts` with `import { PrismaClient } from '@prisma/client'; export const prisma = new PrismaClient();`
-- [ ] Import Prisma client in `src/index.ts` to initialize with the server
-- [ ] Start server with script in `package.json` using `ts-node` (e.g., `"start": "ts-node src/index.ts"`)
+- [x] Initialize Node.js project with Express.js and TypeScript
+- [x] Install dependencies: `express`, `typescript`, `@prisma/client`, `prisma`, `ts-node`, `@types/express`
+- [x] Set up Prisma with `npx prisma init`, configure database URL in `.env` (e.g., `DATABASE_URL=postgresql://USER:PASSWORD@HOST:PORT/DB_NAME`)
+- [x] Define `User` model in `prisma/schema.prisma` with fields: `id` (uuid, primary key), `email` (string, unique), `passwordHash` (string), `createdAt` (datetime)
+- [x] Run `npx prisma migrate dev --name init` to create initial migration and apply schema to database
+- [x] Configure TypeScript with `tsconfig.json` (target: ES6, module: commonjs, strict: true)
+- [x] Create basic Express server in `src/index.ts` with GET `/health` endpoint returning `{ status: "Server is running" }` (200 status)
+- [x] Set up `.env` file with `dotenv` for environment variables (PORT, DATABASE_URL)
+- [x] Create `src/prisma/client.ts` with `import { PrismaClient } from '@prisma/client'; export const prisma = new PrismaClient();`
+- [x] Import Prisma client in `src/index.ts` to initialize with the server
+- [x] Start server with script in `package.json` using `ts-node` (e.g., `"start": "ts-node src/index.ts"`)
 
 ### User Authentication Backend
 
-- [ ] Install dependencies: `bcrypt`, `jsonwebtoken`, `@types/bcrypt`, `@types/jsonwebtoken`
-- [ ] Add POST `/register` endpoint in `src/routes/auth.ts`
-  - [ ] Validate email format and password length (min 8 characters)
-  - [ ] Hash password with `bcrypt` (salt rounds: 10)
-  - [ ] Check if email already exists using Prisma's `prisma.user.findUnique({ where: { email } })`
-  - [ ] Create new user with `prisma.user.create` if email is unique
-- [ ] Add POST `/login` endpoint in `src/routes/auth.ts`
-  - [ ] Find user by email with `prisma.user.findUnique({ where: { email } })`
-  - [ ] Verify password with `bcrypt`
-  - [ ] Generate JWT token with `{ id, email }` payload, signed with `JWT_SECRET` from `.env`, expires in 1h
-- [ ] Handle errors with appropriate status codes (400 for invalid input, 409 for duplicate email, 401 for invalid credentials)
-- [ ] Register auth routes in `src/index.ts` using Express router
+- [x] Install dependencies: `bcrypt`, `jsonwebtoken`, `@types/bcrypt`, `@types/jsonwebtoken`
+- [x] Add POST `/register` endpoint in `src/routes/auth.ts`
+  - [x] Validate email format and password length (min 8 characters)
+  - [x] Hash password with `bcrypt` (salt rounds: 10)
+  - [x] Check if email already exists using Prisma's `prisma.user.findUnique({ where: { email } })`
+  - [x] Create new user with `prisma.user.create` if email is unique
+- [x] Add POST `/login` endpoint in `src/routes/auth.ts`
+  - [x] Find user by email with `prisma.user.findUnique({ where: { email } })`
+  - [x] Verify password with `bcrypt`
+  - [x] Generate JWT token with `{ id, email }` payload, signed with `JWT_SECRET` from `.env`, expires in 1h
+- [x] Handle errors with appropriate status codes (400 for invalid input, 409 for duplicate email, 401 for invalid credentials)
+- [x] Register auth routes in `src/index.ts` using Express router
 
 ### Frontend Setup
 
-- [ ] Create React application with Vite using `npm create vite@latest my-app -- --template react-ts`
-- [ ] Install dependencies: `tailwindcss`, `postcss`, `autoprefixer`, `react-router-dom`
-- [ ] Initialize Tailwind CSS with `npx tailwindcss init -p` to generate `tailwind.config.js` and `postcss.config.js`
-- [ ] Update `src/index.css` with Tailwind directives (`@tailwind base; @tailwind components; @tailwind utilities;`)
-- [ ] Set up React Router in `src/main.tsx`, wrapping the `App` component with `BrowserRouter`
-- [ ] Replace `src/App.tsx` with a basic component displaying a "Resume Screener" heading styled with Tailwind (e.g., `text-2xl`, `font-bold`, `text-center`, `mt-4`)
-- [ ] Create `src/pages/Login.tsx` and `src/pages/Register.tsx` with simple forms (email and password inputs, submit button), styled with Tailwind (e.g., `flex`, `flex-col`, `max-w-md`, `mx-auto`, `p-4`, `bg-gray-100`, `rounded`)
-- [ ] Define routes in `src/App.tsx` for `/login` and `/register`, rendering the respective components
+- [x] Create React application with Vite using `npm create vite@latest my-app -- --template react-ts`
+- [x] Install dependencies: `tailwindcss`, `postcss`, `autoprefixer`, `react-router-dom`
+- [x] Initialize Tailwind CSS with `npx tailwindcss init -p` to generate `tailwind.config.js` and `postcss.config.js`
+- [x] Update `src/index.css` with Tailwind directives (`@tailwind base; @tailwind components; @tailwind utilities;`)
+- [x] Set up React Router in `src/main.tsx`, wrapping the `App` component with `BrowserRouter`
+- [x] Replace `src/App.tsx` with a basic component displaying a "Resume Screener" heading styled with Tailwind (e.g., `text-2xl`, `font-bold`, `text-center`, `mt-4`)
+- [x] Create `src/pages/Login.tsx` and `src/pages/Register.tsx` with simple forms (email and password inputs, submit button), styled with Tailwind (e.g., `flex`, `flex-col`, `max-w-md`, `mx-auto`, `p-4`, `bg-gray-100`, `rounded`)
+- [x] Define routes in `src/App.tsx` for `/login` and `/register`, rendering the respective components
 
 ### Frontend Authentication
 
-- [ ] Install `axios`
-- [ ] Create `src/services/api.ts` with base URL from `VITE_API_URL` (e.g., `http://localhost:3000`) using a `.env` file (prefix variables with `VITE_`, e.g., `VITE_API_URL`)
-- [ ] Add `register` and `login` functions in `api.ts` that send POST requests to `/register` and `/login`
-- [ ] Update `src/pages/Register.tsx` to call `register` function on form submit
-  - [ ] Display success ("Registered!") or error messages (e.g., "Email already exists") with Tailwind-styled text (e.g., `text-green-500` or `text-red-500`)
-- [ ] Update `src/pages/Login.tsx` to call `login` function on form submit
-  - [ ] Store JWT token in `localStorage` on success
-  - [ ] Redirect to `/dashboard`
-  - [ ] Handle errors with user-friendly messages
-- [ ] Add placeholder `Dashboard` component in `src/pages/Dashboard.tsx` with a "Welcome" message
-- [ ] Create auth context in `src/context/AuthContext.tsx` to manage logged-in state (`isAuthenticated`, `token`, `login`/`logout` functions)
-- [ ] Wrap the app in `src/main.tsx` with `AuthContext.Provider`
+- [x] Install `axios`
+- [x] Create `src/services/api.ts` with base URL from `VITE_API_URL` (e.g., `http://localhost:3000`) using a `.env` file (prefix variables with `VITE_`, e.g., `VITE_API_URL`)
+- [x] Add `register` and `login` functions in `api.ts` that send POST requests to `/register` and `/login`
+- [x] Update `src/pages/Register.tsx` to call `register` function on form submit
+  - [x] Display success ("Registered!") or error messages (e.g., "Email already exists") with Tailwind-styled text (e.g., `text-green-500` or `text-red-500`)
+- [x] Update `src/pages/Login.tsx` to call `login` function on form submit
+  - [x] Store JWT token in `localStorage` on success
+  - [x] Redirect to `/dashboard`
+  - [x] Handle errors with user-friendly messages
+- [x] Add placeholder `Dashboard` component in `src/pages/Dashboard.tsx` with a "Welcome" message
+- [x] Create auth context in `src/context/AuthContext.tsx` to manage logged-in state (`isAuthenticated`, `token`, `login`/`logout` functions)
+- [x] Wrap the app in `src/main.tsx` with `AuthContext.Provider`
 
 ## Iteration 2: Session Creation
 
 ### Backend: Session Model and API
 
-- [ ] Add `Session` model to `prisma/schema.prisma` with fields: `id` (uuid, primary key), `userId` (uuid, references `User.id`), `jobDescription` (string), `createdAt` (datetime), `updatedAt` (datetime)
-- [ ] Run `npx prisma migrate dev --name add_session` to apply schema changes
-- [ ] Add POST `/sessions` endpoint in `src/routes/sessions.ts`
-  - [ ] Require JWT authentication by verifying token from `Authorization` header (Bearer <token>)
-  - [ ] Extract `userId` from decoded token
-  - [ ] Accept `{ jobDescription }` in request body
-  - [ ] Create new session with `prisma.session.create`
-  - [ ] Return `{ sessionId }` on success (201 status)
-- [ ] Register sessions route in `src/index.ts`
+- [x] Add `Session` model to `prisma/schema.prisma` with fields: `id` (uuid, primary key), `userId` (uuid, references `User.id`), `jobDescription` (string), `createdAt` (datetime), `updatedAt` (datetime)
+- [x] Run `npx prisma migrate dev --name add_session` to apply schema changes
+- [x] Add POST `/sessions` endpoint in `src/routes/sessions.ts`
+  - [x] Require JWT authentication by verifying token from `Authorization` header (Bearer <token>)
+  - [x] Extract `userId` from decoded token
+  - [x] Accept `{ jobDescription }` in request body
+  - [x] Create new session with `prisma.session.create`
+  - [x] Return `{ sessionId }` on success (201 status)
+- [x] Register sessions route in `src/index.ts`
 
 ### Frontend: Session Creation Interface
 
-- [ ] Update `src/pages/Dashboard.tsx` to display a "Create Session" button
-- [ ] On button click, show a form with a `jobDescription` textarea, styled with Tailwind (e.g., `w-full`, `p-2`, `border`)
-- [ ] On form submit, call `createSession` function in `src/services/api.ts`
-  - [ ] Send POST request to `/sessions` with `jobDescription` and JWT token in headers
-- [ ] On success, redirect to `/sessions/:sessionId`
-- [ ] Add placeholder `SessionDetails` component in `src/pages/SessionDetails.tsx` with `sessionId` from `useParams` (via `react-router-dom`)
-- [ ] Update `src/App.tsx` with new route for `/sessions/:sessionId`
+- [x] Update `src/pages/Dashboard.tsx` to display a "Create Session" button
+- [x] On button click, show a form with a `jobDescription` textarea, styled with Tailwind (e.g., `w-full`, `p-2`, `border`)
+- [x] On form submit, call `createSession` function in `src/services/api.ts`
+  - [x] Send POST request to `/sessions` with `jobDescription` and JWT token in headers
+- [x] On success, redirect to `/sessions/:sessionId`
+- [x] Add placeholder `SessionDetails` component in `src/pages/SessionDetails.tsx` with `sessionId` from `useParams` (via `react-router-dom`)
+- [x] Update `src/App.tsx` with new route for `/sessions/:sessionId`
 
 ## Iteration 3: Single Resume Upload
 
 ### Backend: Resume Upload and Processing
 
-- [ ] Install `multer`, `pdf-parse`, `mammoth`, `uuid`
-- [ ] Add `Candidate` model to `prisma/schema.prisma` with fields: `id` (uuid, primary key), `sessionId` (uuid, references `Session.id`), `createdAt` (datetime)
-- [ ] Add `Resume` model to `prisma/schema.prisma` with fields: `id` (uuid, primary key), `candidateId` (uuid, references `Candidate.id`), `filePath` (string), `extractedText` (string?), `status` (string, default: "processed"), `createdAt` (datetime)
-- [ ] Run `npx prisma migrate dev --name add_candidate_resume` to apply schema changes
-- [ ] Add POST `/sessions/:sessionId/resumes` endpoint in `src/routes/resumes.ts`
-  - [ ] Require JWT authentication
-  - [ ] Configure `multer` to save files to `uploads/` directory with filename `<uuid>.<extension>`
-  - [ ] Validate file type (PDF or DOCX)
-  - [ ] Extract text using `pdf-parse` for PDF, `mammoth` for DOCX
-  - [ ] Create `Candidate` record with `sessionId` using `prisma.candidate.create`
-  - [ ] Create `Resume` record with `extractedText` and `status` ("processed" if text exists, "review_needed" if empty/fails) using `prisma.resume.create`
-  - [ ] Return `{ resumeId, extractedText, status }` (200 status)
-- [ ] Register resumes route in `src/index.ts`
+- [x] Install `multer`, `pdf-parse`, `mammoth`, `uuid`
+- [x] Add `Candidate` model to `prisma/schema.prisma` with fields: `id` (uuid, primary key), `sessionId` (uuid, references `Session.id`), `createdAt` (datetime)
+- [x] Add `Resume` model to `prisma/schema.prisma` with fields: `id` (uuid, primary key), `candidateId` (uuid, references `Candidate.id`), `filePath` (string), `extractedText` (string?), `status` (string, default: "processed"), `createdAt` (datetime)
+- [x] Run `npx prisma migrate dev --name add_candidate_resume` to apply schema changes
+- [x] Add POST `/sessions/:sessionId/resumes` endpoint in `src/routes/resumes.ts`
+  - [x] Require JWT authentication
+  - [x] Configure `multer` to save files to `uploads/` directory with filename `<uuid>.<extension>`
+  - [x] Validate file type (PDF or DOCX)
+  - [x] Extract text using `pdfjs-dist` for PDF, `mammoth` for DOCX
+  - [x] Create `Candidate` record with `sessionId` using `prisma.candidate.create`
+  - [x] Create `Resume` record with `extractedText` and `status` ("processed" if text exists, "review_needed" if empty/fails) using `prisma.resume.create`
+  - [x] Return `{ resumeId, extractedText, status }` (200 status)
+- [x] Register resumes route in `src/index.ts`
 
 ### Frontend: Upload Interface
 
-- [ ] In `src/pages/SessionDetails.tsx`, add file input (`accept=".pdf,.docx"`) and submit button, styled with Tailwind (e.g., `mt-4`, `p-2`, `border`)
-- [ ] On submit, create `FormData` with file and send POST request to `/sessions/:sessionId/resumes` with JWT token in headers via `src/services/api.ts`
-- [ ] On success, display `extractedText` in a div (e.g., `p-4`, `bg-white`, `border`) if `status` is "processed", or a "Review needed" message if "review_needed"
+- [x] In `src/pages/SessionDetails.tsx`, add file input (`accept=".pdf,.docx"`) and submit button, styled with Tailwind (e.g., `mt-4`, `p-2`, `border`)
+- [x] On submit, create `FormData` with file and send POST request to `/sessions/:sessionId/resumes` with JWT token in headers via `src/services/api.ts`
+- [x] On success, display `extractedText` in a div (e.g., `p-4`, `bg-white`, `border`) if `status` is "processed", or a "Review needed" message if "review_needed"
 
 ## Iteration 4: Bulk Upload & Async Processing
 

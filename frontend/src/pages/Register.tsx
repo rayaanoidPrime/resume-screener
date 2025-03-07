@@ -1,30 +1,30 @@
 import { FormEvent, useState } from "react";
+import { useAuth } from "../context/AuthContext";
+import { Navigate, useNavigate } from "react-router";
 
 export default function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+  const { register, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" />;
+  }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
+    setSuccess(false);
 
     try {
-      const response = await fetch("http://localhost:3000/auth/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Registration failed");
-      }
-
-      // TODO: Redirect to login
+      await register(email, password);
+      setSuccess(true);
+      setTimeout(() => {
+        navigate("/login");
+      }, 2000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed");
     }
@@ -77,6 +77,12 @@ export default function Register() {
 
           {error && (
             <div className="text-red-500 text-sm text-center">{error}</div>
+          )}
+
+          {success && (
+            <div className="text-green-500 text-sm text-center">
+              Registration successful! Redirecting to login...
+            </div>
           )}
 
           <div>

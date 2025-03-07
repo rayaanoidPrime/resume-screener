@@ -1,32 +1,25 @@
 import { FormEvent, useState } from "react";
+import { useAuth } from "../context/AuthContext";
+import { Navigate, useNavigate } from "react-router";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const { login, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" />;
+  }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
 
     try {
-      const response = await fetch("http://localhost:3000/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Login failed");
-      }
-
-      // Store token and redirect
-      localStorage.setItem("token", data.token);
-      // TODO: Redirect to dashboard
+      await login(email, password);
+      navigate("/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     }
