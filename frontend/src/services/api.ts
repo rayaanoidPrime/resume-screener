@@ -197,4 +197,15 @@ export const sessionApi = {
       throw handleApiError(error);
     }
   },
+
+  async getSessions(token: string) {
+    try {
+      const response = await axios.get(`${API_URL}/sessions`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return response.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
 };

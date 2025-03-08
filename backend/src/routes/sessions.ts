@@ -145,4 +145,35 @@ router.get("/:sessionId", authenticateToken, async (req, res) => {
   }
 });
 
+// Get all sessions for the authenticated user
+router.get("/", authenticateToken, async (req, res) => {
+  try {
+    if (!req.user?.id) {
+      res.status(401).json({ error: "User ID not found" });
+      return;
+    }
+
+    const sessions = await prisma.session.findMany({
+      where: {
+        userId: req.user.id,
+      },
+      include: {
+        _count: {
+          select: {
+            candidates: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    res.status(200).json(sessions);
+  } catch (error) {
+    console.error("Sessions retrieval error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 export default router;
