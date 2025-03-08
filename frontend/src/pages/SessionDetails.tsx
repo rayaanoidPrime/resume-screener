@@ -9,11 +9,6 @@ interface JobStatus {
   progress: number;
 }
 
-interface JobStatusResponse {
-  jobId: string;
-  status: string;
-}
-
 interface ResumeUploadResult {
   jobIds: string[];
   message: string;
@@ -32,23 +27,81 @@ interface EditingResume {
   extractedText: string;
 }
 
-interface EvaluationResult {
-  candidateId: string;
-  keywordScore: number;
-  totalScore: number;
-}
-
-interface SelectedCandidate {
-  candidateId: string;
-  keywordScore: number;
-  totalScore: number;
-}
-
 interface ViewingResume {
   resumeId: string;
   filePath: string;
   mimeType: string;
   extractedText: string;
+}
+
+interface RankedCandidate {
+  resumeId: string;
+  candidateId: string;
+  filePath: string;
+  scores: {
+    keywordScore: number;
+    totalScore: number;
+  };
+  structuredData: {
+    contact_info: {
+      name: string | null;
+      email: string | null;
+      phone: string | null;
+      location: string | null;
+      linkedin: string | null;
+      portfolio: string | null;
+    };
+    summary: string | null;
+    experience: {
+      company: string;
+      title: string;
+      dates: string;
+      location: string;
+      description: string[];
+    }[];
+    education:
+      | {
+          institution: string;
+          degree: string;
+          field: string;
+          dates: string;
+          gpa: string | null;
+        }[]
+      | null;
+    skills: {
+      programming_languages?: string[];
+      frameworks?: string[];
+      databases?: string[];
+      tools?: string[];
+    };
+    certifications: {
+      name: string;
+      issuer: string;
+      date: string;
+    }[];
+    projects: {
+      name: string;
+      description: string;
+      technologies: string[];
+      link: string;
+    }[];
+    languages: {
+      language: string;
+      proficiency: string;
+    }[];
+    additional: Record<string, string | string[]> | null;
+    confidence: {
+      contact_info: "high" | "medium" | "low";
+      summary: "high" | "medium" | "low";
+      experience: "high" | "medium" | "low";
+      education: "high" | "medium" | "low";
+      skills: "high" | "medium" | "low";
+      certifications: "high" | "medium" | "low";
+      projects: "high" | "medium" | "low";
+      languages: "high" | "medium" | "low";
+      additional: "high" | "medium" | "low";
+    };
+  };
 }
 
 export default function SessionDetails() {
@@ -64,17 +117,33 @@ export default function SessionDetails() {
     null
   );
   const [saving, setSaving] = useState(false);
-  const [evaluationResults, setEvaluationResults] = useState<
-    EvaluationResult[]
-  >([]);
-  const [selectedCandidate, setSelectedCandidate] =
-    useState<SelectedCandidate | null>(null);
-  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [rankings, setRankings] = useState<RankedCandidate[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [sessionDetails, setSessionDetails] = useState<any>(null);
+  const [loadingSession, setLoadingSession] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollingIntervalRef = useRef<number | undefined>(undefined);
   const [viewingResume, setViewingResume] = useState<ViewingResume | null>(
     null
   );
+
+  useEffect(() => {
+    const fetchSessionDetails = async () => {
+      if (!sessionId || !token) return;
+      try {
+        const data = await sessionApi.getSession(sessionId, token);
+        setSessionDetails(data);
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Failed to fetch session details"
+        );
+      } finally {
+        setLoadingSession(false);
+      }
+    };
+
+    fetchSessionDetails();
+  }, [sessionId, token]);
 
   useEffect(() => {
     return () => {
@@ -83,6 +152,20 @@ export default function SessionDetails() {
       }
     };
   }, []);
+
+  const fetchRankings = async () => {
+    if (!sessionId || !token) return;
+
+    setLoading(true);
+    try {
+      const data = await sessionApi.getRankings(sessionId, token);
+      setRankings(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch rankings");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (!isAuthenticated) {
     return <Navigate to="/login" />;
@@ -224,310 +307,399 @@ export default function SessionDetails() {
     }
   };
 
-  const handleEvaluate = async () => {
-    if (!sessionId || !token) return;
-
-    setIsEvaluating(true);
-    try {
-      const results = await sessionApi.evaluateSession(sessionId, token);
-      setEvaluationResults(results);
-    } catch (error) {
-      console.error("Evaluation failed:", error);
-    } finally {
-      setIsEvaluating(false);
-    }
+  const formatScore = (score: number) => {
+    return `${(score * 100).toFixed(1)}%`;
   };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      <div className="bg-white shadow rounded-lg p-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-4">
-          Session Details
-        </h1>
-        <p className="text-gray-600 mb-6">Session ID: {sessionId}</p>
+      {loadingSession ? (
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading job details...</p>
+        </div>
+      ) : sessionDetails ? (
+        <div className="space-y-8">
+          {/* Job Details Header */}
+          <div className="bg-white shadow rounded-lg overflow-hidden">
+            <div className="bg-gradient-to-r from-blue-600 to-blue-800 px-6 py-4">
+              <h1 className="text-2xl font-bold text-white">
+                {sessionDetails.jobTitle}
+              </h1>
+              <div className="mt-2 flex flex-wrap gap-4">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-200 text-blue-800">
+                  {sessionDetails.department}
+                </span>
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-200 text-blue-800">
+                  {sessionDetails.location}
+                </span>
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-200 text-blue-800">
+                  {sessionDetails.employmentType}
+                </span>
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-200 text-blue-800">
+                  {sessionDetails.experienceLevel}
+                </span>
+              </div>
+            </div>
 
-        <form onSubmit={handleSubmit} className="mb-6">
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Upload Resumes
-              </label>
-              <div className="mt-1 flex items-center space-x-4">
+            <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900 mb-3">
+                  Job Description
+                </h2>
+                <p className="text-gray-600 whitespace-pre-wrap">
+                  {sessionDetails.jobDescription}
+                </p>
+              </div>
+
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900 mb-3">
+                    Required Skills
+                  </h2>
+                  <div className="flex flex-wrap gap-2">
+                    {sessionDetails.requiredSkills?.map((skill: string) => (
+                      <span
+                        key={skill}
+                        className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800"
+                      >
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {sessionDetails.preferredSkills?.length > 0 && (
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900 mb-3">
+                      Preferred Skills
+                    </h2>
+                    <div className="flex flex-wrap gap-2">
+                      {sessionDetails.preferredSkills?.map((skill: string) => (
+                        <span
+                          key={skill}
+                          className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800"
+                        >
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900 mb-3">
+                    Key Responsibilities
+                  </h2>
+                  <ul className="list-disc list-inside space-y-2 text-gray-600">
+                    {sessionDetails.responsibilities?.map((resp: string) => (
+                      <li key={resp}>{resp}</li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900 mb-3">
+                      Required Education
+                    </h2>
+                    <p className="text-gray-600">
+                      {sessionDetails.educationRequired}
+                    </p>
+                  </div>
+                  {sessionDetails.educationPreferred && (
+                    <div>
+                      <h2 className="text-lg font-semibold text-gray-900 mb-3">
+                        Preferred Education
+                      </h2>
+                      <p className="text-gray-600">
+                        {sessionDetails.educationPreferred}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Resume Upload Section */}
+          <div className="bg-white shadow rounded-lg p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              Upload Resumes
+            </h2>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label
+                  htmlFor="resumes"
+                  className="block text-sm font-medium text-gray-700"
+                >
+                  Upload Resumes
+                </label>
                 <input
                   type="file"
-                  ref={fileInputRef}
-                  accept=".pdf,.docx"
+                  id="resumes"
+                  name="resumes"
                   multiple
-                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                  accept=".pdf,.doc,.docx"
+                  ref={fileInputRef}
+                  className="mt-1 block w-full text-sm text-gray-500
+                    file:mr-4 file:py-2 file:px-4
+                    file:rounded-md file:border-0
+                    file:text-sm file:font-semibold
+                    file:bg-blue-50 file:text-blue-700
+                    hover:file:bg-blue-100"
                 />
-                <button
-                  type="submit"
-                  disabled={uploading}
-                  className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
-                    uploading ? "opacity-50 cursor-not-allowed" : ""
-                  }`}
-                >
-                  {uploading ? "Uploading..." : "Upload"}
-                </button>
               </div>
-            </div>
-
-            {error && <div className="text-red-500 text-sm">{error}</div>}
+              <button
+                type="submit"
+                disabled={uploading}
+                className="inline-flex justify-center py-2 px-4 border border-transparent 
+                  shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 
+                  hover:bg-blue-700 focus:outline-none focus:ring-2 
+                  focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              >
+                {uploading ? "Uploading..." : "Upload"}
+              </button>
+            </form>
           </div>
-        </form>
 
-        {uploadedResumes.length > 0 && (
-          <div className="mt-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">
-              Processed Resumes
-            </h2>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Resume #
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Job ID
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Status
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {uploadedResumes.map((resume, index) => {
-                    const jobId = resume.jobIds[0];
-                    const jobStatus = jobStatuses[jobId];
-                    return (
-                      <tr key={jobId}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          Resume #{index + 1}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {jobId.slice(0, 8)}...
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span
-                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                            ${
-                              jobStatus?.status === "completed"
-                                ? "bg-green-100 text-green-800"
-                                : jobStatus?.status === "failed"
-                                ? "bg-red-100 text-red-800"
-                                : "bg-yellow-100 text-yellow-800"
-                            }`}
-                          >
-                            {jobStatus?.status === "completed"
-                              ? "Completed"
-                              : jobStatus?.status === "failed"
-                              ? "Failed"
-                              : jobStatus?.status === "waiting"
-                              ? "Waiting"
-                              : "Processing"}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          <button
-                            onClick={() =>
-                              setViewingResume({
-                                resumeId: resume.files[0]?.resumeId || "",
-                                filePath: resume.files[0]?.filePath || "",
-                                mimeType: resume.files[0]?.mimeType || "",
-                                extractedText: resume.extractedText || "",
-                              })
-                            }
-                            className="text-blue-600 hover:text-blue-900"
-                          >
-                            View/Edit
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* View/Edit Resume Modal */}
-        {viewingResume && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-6xl h-[90vh] flex flex-col">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">Resume Preview & Edit</h3>
-                <button
-                  onClick={() => setViewingResume(null)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  ✕
-                </button>
-              </div>
-              <div className="flex gap-4 flex-1 min-h-0">
-                <div className="w-1/2 flex flex-col">
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">
-                    Document Preview
-                  </h4>
-                  <div className="flex-1 border rounded-lg overflow-hidden">
-                    {viewingResume.mimeType === "application/pdf" ? (
-                      <iframe
-                        src={`/uploads/${viewingResume.filePath}`}
-                        className="w-full h-full"
-                        title="PDF Preview"
-                      />
-                    ) : (
-                      <div className="w-full h-full p-4 overflow-auto bg-gray-50">
-                        <pre className="text-sm whitespace-pre-wrap">
-                          Document preview not available
-                        </pre>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="w-1/2 flex flex-col">
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">
-                    Extracted Text
-                  </h4>
-                  <div className="flex-1 flex flex-col">
-                    {editingResume?.id === viewingResume.resumeId ? (
-                      <>
-                        <textarea
-                          value={editingResume.extractedText}
-                          onChange={(e) =>
-                            setEditingResume({
-                              ...editingResume,
-                              extractedText: e.target.value,
-                            })
-                          }
-                          className="flex-1 p-4 border rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 mb-4"
-                        />
-                        <div className="flex justify-end gap-2">
-                          <button
-                            onClick={() => setEditingResume(null)}
-                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            onClick={() =>
-                              handleSave(
-                                editingResume.id,
-                                editingResume.extractedText
-                              )
-                            }
-                            disabled={saving}
-                            className="px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-md hover:bg-blue-600 disabled:opacity-50"
-                          >
-                            {saving ? "Saving..." : "Save"}
-                          </button>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="flex-1 p-4 border rounded-lg overflow-auto bg-gray-50 mb-4">
-                          <pre className="text-sm whitespace-pre-wrap">
-                            {viewingResume.extractedText || "No text available"}
-                          </pre>
-                        </div>
-                        <div className="flex justify-end">
-                          <button
-                            onClick={() =>
-                              setEditingResume({
-                                id: viewingResume.resumeId,
-                                extractedText: viewingResume.extractedText,
-                              })
-                            }
-                            className="px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-md hover:bg-blue-600"
-                          >
-                            Edit
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="mt-4">
-          <button
-            onClick={handleEvaluate}
-            disabled={isEvaluating}
-            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:bg-blue-300"
-          >
-            {isEvaluating ? "Evaluating..." : "Evaluate Resumes"}
-          </button>
-        </div>
-
-        {evaluationResults.length > 0 && (
-          <div className="mt-6">
-            <h2 className="text-xl font-semibold mb-4">Evaluation Results</h2>
-            <div className="flex flex-col gap-2">
-              {evaluationResults
-                .sort((a, b) => b.totalScore - a.totalScore)
-                .map((result) => (
+          {/* Processing Status Section */}
+          {Object.keys(jobStatuses).length > 0 && (
+            <div className="bg-white shadow rounded-lg p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                Processing Status
+              </h2>
+              <div className="space-y-2">
+                {Object.values(jobStatuses).map((status) => (
                   <div
-                    key={result.candidateId}
-                    onClick={() => setSelectedCandidate(result)}
-                    className="p-4 bg-gray-100 rounded cursor-pointer hover:bg-gray-200"
+                    key={status.jobId}
+                    className="flex items-center justify-between"
                   >
-                    <div className="flex justify-between items-center">
-                      <span>Candidate {result.candidateId.slice(0, 8)}</span>
-                      <span className="font-semibold">
-                        Score: {(result.totalScore * 100).toFixed(1)}%
-                      </span>
+                    <span className={getStatusColor(status.status)}>
+                      Job {status.jobId}: {status.status}
+                    </span>
+                    <div className="w-1/2 bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-blue-600 rounded-full h-2"
+                        style={{ width: `${status.progress}%` }}
+                      />
                     </div>
                   </div>
                 ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {selectedCandidate && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-            <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">Evaluation Details</h3>
-                <button
-                  onClick={() => setSelectedCandidate(null)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  ✕
-                </button>
+          {/* Candidate Rankings Section */}
+          <div className="bg-white shadow rounded-lg p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">
+                Candidate Rankings
+              </h2>
+              <button
+                onClick={fetchRankings}
+                disabled={loading}
+                className="inline-flex justify-center py-2 px-4 border border-transparent 
+                  shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 
+                  hover:bg-blue-700 focus:outline-none focus:ring-2 
+                  focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              >
+                {loading ? "Ranking..." : "Rank Candidates"}
+              </button>
+            </div>
+            {loading ? (
+              <p className="text-gray-600">Loading rankings...</p>
+            ) : rankings.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Rank
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Candidate
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Contact
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Match Score
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Keyword Score
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {rankings.map((candidate, index) => (
+                      <tr key={candidate.resumeId}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          #{index + 1}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {candidate.structuredData?.contact_info?.name ||
+                            "N/A"}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <div>
+                            {candidate.structuredData?.contact_info?.email && (
+                              <div>
+                                {candidate.structuredData.contact_info.email}
+                              </div>
+                            )}
+                            {candidate.structuredData?.contact_info?.phone && (
+                              <div>
+                                {candidate.structuredData.contact_info.phone}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {formatScore(candidate.scores?.totalScore || 0)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {formatScore(candidate.scores?.keywordScore || 0)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <button
+                            onClick={() =>
+                              setViewingResume({
+                                resumeId: candidate.resumeId,
+                                filePath: candidate.filePath,
+                                mimeType: "", // This will be determined when viewing
+                                extractedText: "", // This will be loaded when viewing
+                              })
+                            }
+                            className="text-blue-600 hover:text-blue-900 mr-4"
+                          >
+                            View Resume
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <div className="space-y-2">
-                <p>
-                  <span className="font-medium">Keyword Score:</span>{" "}
-                  {(selectedCandidate.keywordScore * 100).toFixed(1)}%
-                </p>
-                <p>
-                  <span className="font-medium">Total Score:</span>{" "}
-                  {(selectedCandidate.totalScore * 100).toFixed(1)}%
-                </p>
+            ) : (
+              <p className="text-gray-600">No evaluated resumes yet.</p>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="text-center py-12">
+          <p className="text-gray-600">Failed to load job details.</p>
+        </div>
+      )}
+
+      {error && (
+        <div className="mt-4 bg-red-50 border border-red-200 rounded-md p-4">
+          <p className="text-red-600">{error}</p>
+        </div>
+      )}
+
+      {viewingResume && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-6xl h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Resume Preview & Edit</h3>
+              <button
+                onClick={() => setViewingResume(null)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex gap-4 flex-1 min-h-0">
+              <div className="w-1/2 flex flex-col">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">
+                  Document Preview
+                </h4>
+                <div className="flex-1 border rounded-lg overflow-hidden">
+                  {viewingResume.mimeType === "application/pdf" ? (
+                    <iframe
+                      src={`/uploads/${viewingResume.filePath}`}
+                      className="w-full h-full"
+                      title="PDF Preview"
+                    />
+                  ) : (
+                    <div className="w-full h-full p-4 overflow-auto bg-gray-50">
+                      <pre className="text-sm whitespace-pre-wrap">
+                        Document preview not available
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="w-1/2 flex flex-col">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">
+                  Extracted Text
+                </h4>
+                <div className="flex-1 flex flex-col">
+                  {editingResume?.id === viewingResume.resumeId ? (
+                    <>
+                      <textarea
+                        value={editingResume.extractedText}
+                        onChange={(e) =>
+                          setEditingResume({
+                            ...editingResume,
+                            extractedText: e.target.value,
+                          })
+                        }
+                        className="flex-1 p-4 border rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 mb-4"
+                      />
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => setEditingResume(null)}
+                          className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() =>
+                            handleSave(
+                              editingResume.id,
+                              editingResume.extractedText
+                            )
+                          }
+                          disabled={saving}
+                          className="px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-md hover:bg-blue-600 disabled:opacity-50"
+                        >
+                          {saving ? "Saving..." : "Save"}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex-1 p-4 border rounded-lg overflow-auto bg-gray-50 mb-4">
+                        <pre className="text-sm whitespace-pre-wrap">
+                          {viewingResume.extractedText || "No text available"}
+                        </pre>
+                      </div>
+                      <div className="flex justify-end">
+                        <button
+                          onClick={() =>
+                            setEditingResume({
+                              id: viewingResume.resumeId,
+                              extractedText: viewingResume.extractedText,
+                            })
+                          }
+                          className="px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-md hover:bg-blue-600"
+                        >
+                          Edit
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -19,13 +19,23 @@ model User {
 }
 
 model Session {
-  id             String      @id @default(uuid())
-  userId         String
-  jobDescription String
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
-  user           User        @relation(fields: [userId], references: [id])
-  candidates     Candidate[]
+  id                    String      @id @default(uuid())
+  userId               String
+  jobTitle             String
+  department           String
+  location             String
+  employmentType       String      // Full-time, Part-time, Contract, etc.
+  experienceLevel      String      // Junior, Mid, Senior
+  jobDescription       String      // Main job description
+  requiredSkills       String[]    // Array of required skills
+  preferredSkills      String[]    // Array of preferred skills
+  educationRequired    String      // Minimum education requirement
+  educationPreferred   String?     // Preferred education level
+  responsibilities     String[]    // Array of key responsibilities
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  user                User        @relation(fields: [userId], references: [id])
+  candidates          Candidate[]
 }
 
 model Candidate {
@@ -33,7 +43,6 @@ model Candidate {
   sessionId   String
   session     Session  @relation(fields: [sessionId], references: [id])
   resumes     Resume[]
-  evaluations Evaluation[]
 
   @@index([sessionId])
 }
@@ -47,15 +56,17 @@ model Resume {
   status       String    @default("processed")
   createdAt    DateTime  @default(now())
   candidate    Candidate @relation(fields: [candidateId], references: [id])
+  evaluation   Evaluation?
+
+  @@index([candidateId])
 }
 
 model Evaluation {
-  id          String   @id @default(uuid())
-  candidateId String
-  candidate   Candidate @relation(fields: [candidateId], references: [id])
+  id           String   @id @default(uuid())
+  resumeId     String   @unique
+  resume       Resume   @relation(fields: [resumeId], references: [id], onDelete: Cascade)
   keywordScore Float
+  qualitativeScore Float
   totalScore   Float
   createdAt    DateTime @default(now())
-
-  @@index([candidateId])
 } 

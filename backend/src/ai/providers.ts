@@ -1,7 +1,9 @@
 import OpenAI from "openai";
+import ollama from "ollama";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export interface AIProvider {
-  completion: (text: string) => Promise<any>;
+  completion: (text: string, systemPrompt?: string) => Promise<any>;
 }
 
 export interface AIConfig {
@@ -26,15 +28,14 @@ class OpenAIProvider implements AIProvider {
     this.temperature = config.temperature || 0.2;
   }
 
-  async completion(text: string): Promise<any> {
+  async completion(text: string, systemPrompt?: string): Promise<any> {
     try {
       const completion = await this.client.chat.completions.create({
         model: this.model,
         messages: [
           {
             role: "system",
-            content:
-              "You are an unstructured text parsing expert that outputs only valid JSON.",
+            content: systemPrompt || "You are a helpful assistant",
           },
           {
             role: "user",
@@ -45,7 +46,7 @@ class OpenAIProvider implements AIProvider {
         response_format: { type: "json_object" },
       });
 
-      return JSON.parse(completion.choices[0].message.content || "{}");
+      return completion.choices[0].message.content;
     } catch (error) {
       console.error("OpenAI parsing error:", error);
       throw new Error("Failed to parse text with OpenAI");
@@ -62,16 +63,81 @@ class AnthropicProvider implements AIProvider {
 }
 
 class OllamaProvider implements AIProvider {
-  // Implement Ollama-specific logic
-  async completion(text: string): Promise<any> {
-    throw new Error("Ollama provider not implemented yet");
+  private model: string;
+  private temperature: number;
+
+  constructor(config: AIConfig) {
+    this.model = config.model || "llama3.1";
+    this.temperature = config.temperature || 0.2;
+  }
+
+  async completion(text: string, systemPrompt?: string): Promise<any> {
+    try {
+      const response = await ollama.chat({
+        options: {
+          temperature: this.temperature,
+        },
+        model: this.model,
+        messages: [
+          {
+            role: "system",
+            content: systemPrompt || "You are a helpful assistant",
+          },
+          {
+            role: "user",
+            content: text,
+          },
+        ],
+      });
+
+      return response.message.content;
+    } catch (error) {
+      console.error("Ollama parsing error:", error);
+      throw new Error("Failed to parse text with Ollama");
+    }
   }
 }
 
 class GeminiProvider implements AIProvider {
-  // Implement Gemini-specific logic
-  async completion(text: string): Promise<any> {
-    throw new Error("Gemini provider not implemented yet");
+  private model: string;
+  private temperature: number;
+  private client: GoogleGenerativeAI;
+
+  constructor(config: AIConfig) {
+    this.model = config.model || "gemini-pro";
+    this.temperature = config.temperature || 0.2;
+    if (!config.apiKey) {
+      throw new Error("API key is required for Gemini provider");
+    }
+    this.client = new GoogleGenerativeAI(config.apiKey);
+  }
+
+  async completion(text: string, systemPrompt?: string): Promise<any> {
+    try {
+      const model = this.client.getGenerativeModel({
+        model: this.model,
+        systemInstruction: systemPrompt,
+      });
+
+      const result = await model.generateContent({
+        generationConfig: {
+          temperature: this.temperature,
+        },
+        contents: [
+          {
+            role: "user",
+            parts: [{ text }],
+          },
+        ],
+      });
+
+      const responseText = result.response.text();
+
+      return responseText;
+    } catch (error) {
+      console.error("Gemini parsing error:", error);
+      throw new Error("Failed to parse text with Gemini");
+    }
   }
 }
 
@@ -82,9 +148,9 @@ export function createAIProvider(config: AIConfig): AIProvider {
     case "anthropic":
       return new AnthropicProvider();
     case "ollama":
-      return new OllamaProvider();
+      return new OllamaProvider(config);
     case "gemini":
-      return new GeminiProvider();
+      return new GeminiProvider(config);
     default:
       throw new Error(`Unsupported AI provider: ${config.provider}`);
   }

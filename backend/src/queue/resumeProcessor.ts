@@ -6,6 +6,68 @@ import fs from "fs/promises";
 import { createAIProvider } from "../ai/providers";
 import { aiConfig } from "../ai/config";
 import { parseResumePrompt } from "../ai/prompts";
+import { evaluateResume } from "../services/evaluation";
+
+export interface ResumeData {
+  contact_info: {
+    name: string | null;
+    email: string | null;
+    phone: string | null;
+    location: string | null;
+    linkedin: string | null;
+    portfolio: string | null;
+  };
+  summary: string | null;
+  experience: {
+    company: string;
+    title: string;
+    dates: string;
+    location: string;
+    description: string[];
+  }[];
+  education:
+    | {
+        institution: string;
+        degree: string;
+        field: string;
+        dates: string;
+        gpa: string | null;
+      }[]
+    | null; // Allow null if education is unavailable
+  skills: {
+    programming_languages?: string[];
+    frameworks?: string[];
+    databases?: string[];
+    tools?: string[];
+  };
+  certifications: {
+    name: string;
+    issuer: string;
+    date: string;
+  }[];
+  projects: {
+    name: string;
+    description: string;
+    technologies: string[];
+    link: string;
+  }[];
+  languages: {
+    language: string;
+    proficiency: string;
+  }[];
+  additional: Record<string, string | string[]> | null; // Allow flexible additional data
+  confidence: {
+    contact_info: "high" | "medium" | "low";
+    summary: "high" | "medium" | "low";
+    experience: "high" | "medium" | "low";
+    education: "high" | "medium" | "low";
+    skills: "high" | "medium" | "low";
+    certifications: "high" | "medium" | "low";
+    projects: "high" | "medium" | "low";
+    languages: "high" | "medium" | "low";
+    additional: "high" | "medium" | "low";
+  };
+}
 
 // Create AI provider instance
 const aiProvider = createAIProvider(aiConfig);
@@ -64,10 +126,27 @@ async function extractDocxText(filePath: string): Promise<string> {
 }
 
 // Parse resume text using configured AI provider
-async function parseResume(extractedText: string): Promise<any> {
+async function parseResume(extractedText: string): Promise<ResumeData> {
   try {
     const prompt = parseResumePrompt(extractedText);
-    return await aiProvider.completion(prompt);
+    const response = await aiProvider.completion(
+      prompt,
+      "You are an expert resume parser that outputs only valid JSON."
+    );
+
+    try {
+      // Clean up the response by removing markdown code blocks if present
+      const cleanedResponse =
+        typeof response === "string"
+          ? response.replace(/^```json\s*|\s*```$/g, "").trim()
+          : response;
+
+      return JSON.parse(cleanedResponse) as ResumeData;
+    } catch (error) {
+      console.error("JSON parsing error:", error);
+      console.error("Raw response:", response);
+      throw new Error("Failed to parse resume");
+    }
   } catch (error) {
     console.error("Resume parsing error:", error);
     throw new Error("Failed to parse resume");
@@ -102,18 +181,46 @@ resumeQueue.process(async (job) => {
       throw new Error("Failed to extract text from file");
     }
 
-    // Update progress to 50%
-    await job.progress(50);
+    // Update progress to 40%
+    await job.progress(40);
 
     // Parse resume with GPT
-    let structuredData = null;
+    let structuredData: ResumeData | null = null;
     try {
       structuredData = await parseResume(extractedText);
-      await job.progress(75);
+      await job.progress(60);
+
+      if (!structuredData) {
+        throw new Error("Failed to parse structured data from resume");
+      }
     } catch (error) {
-      console.error("GPT parsing error:", error);
+      console.error("Resume parsing error:", error);
       // Continue with the process even if GPT parsing fails
     }
+
+    // Get session's job description for evaluation
+    const session = await prisma.session.findUnique({
+      where: { id: sessionId },
+      select: { jobDescription: true },
+    });
+
+    if (!session?.jobDescription) {
+      throw new Error("Session or job description not found");
+    }
+
+    if (!structuredData) {
+      throw new Error("Structured data not found");
+    }
+
+    // Evaluate resume
+    const { keywordScore, qualitativeScore, totalScore } = await evaluateResume(
+      session.jobDescription,
+      extractedText,
+      structuredData
+    );
+
+    // Update progress to 80%
+    await job.progress(80);
 
     // Create candidate and resume records
     const candidate = await prisma.candidate.create({
@@ -123,13 +230,28 @@ resumeQueue.process(async (job) => {
           create: {
             filePath,
             extractedText,
-            structuredData,
-            status: extractedText ? "processed" : "review_needed",
+            structuredData: structuredData as any, // Type cast to fix Prisma JSON compatibility
+            status:
+              extractedText.length > 0 && structuredData
+                ? "processed"
+                : "needs_review",
           },
         },
       },
       include: {
-        resumes: true,
+        resumes: {
+          take: 1,
+        },
+      },
+    });
+
+    // Create evaluation record
+    const evaluation = await prisma.evaluation.create({
+      data: {
+        resumeId: candidate.resumes[0].id,
+        keywordScore,
+        qualitativeScore,
+        totalScore,
       },
     });
 
@@ -139,7 +261,12 @@ resumeQueue.process(async (job) => {
     return {
       candidateId: candidate.id,
       resumeId: candidate.resumes[0].id,
-      status: candidate.resumes[0].status,
+      status:
+        extractedText.length > 0 && structuredData
+          ? "processed"
+          : "needs_review",
+      keywordScore: evaluation.keywordScore,
+      totalScore: evaluation.totalScore,
     };
   } catch (error) {
     console.error("Resume processing error:", error);

@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -16,9 +16,35 @@ interface AuthResponse {
   userId?: string;
 }
 
+interface JobFormData {
+  jobTitle: string;
+  department: string;
+  location: string;
+  employmentType: string;
+  experienceLevel: string;
+  jobDescription: string;
+  requiredSkills: string[];
+  preferredSkills: string[];
+  educationRequired: string;
+  educationPreferred: string;
+  responsibilities: string[];
+}
+
 interface SessionResponse {
-  sessionId: string;
-  error?: string;
+  id: string;
+  jobTitle: string;
+  department: string;
+  location: string;
+  employmentType: string;
+  experienceLevel: string;
+  jobDescription: string;
+  requiredSkills: string[];
+  preferredSkills: string[];
+  educationRequired: string;
+  educationPreferred: string | null;
+  responsibilities: string[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface ResumeFile {
@@ -40,6 +66,18 @@ interface ResumeUpdateResponse {
   status: string;
 }
 
+const handleApiError = (error: unknown) => {
+  if (axios.isAxiosError(error)) {
+    const axiosError = error as AxiosError<{ error: string }>;
+    throw new Error(
+      axiosError.response?.data?.error ||
+        axiosError.message ||
+        "An error occurred"
+    );
+  }
+  throw error;
+};
+
 export const authApi = {
   async register(email: string, password: string): Promise<AuthResponse> {
     const response = await api.post("/auth/register", { email, password });
@@ -54,19 +92,23 @@ export const authApi = {
 
 export const sessionApi = {
   async createSession(
-    jobDescription: string,
+    data: JobFormData,
     token: string
   ): Promise<SessionResponse> {
-    const response = await api.post(
-      "/sessions",
-      { jobDescription },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-    return response.data;
+    const response = await fetch(`${API_URL}/sessions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to create session");
+    }
+
+    return response.json();
   },
 
   uploadResumes: async (
@@ -129,5 +171,30 @@ export const sessionApi = {
       }
     );
     return response.data;
+  },
+
+  getRankings: async (sessionId: string, token: string) => {
+    const response = await fetch(`${API_URL}/sessions/${sessionId}/rankings`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch rankings");
+    }
+
+    return response.json();
+  },
+
+  async getSession(sessionId: string, token: string) {
+    try {
+      const response = await axios.get(`${API_URL}/sessions/${sessionId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return response.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
   },
 };

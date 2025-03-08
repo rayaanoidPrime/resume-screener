@@ -1,3 +1,10 @@
+import { createAIProvider } from "../ai/providers";
+import { aiConfig } from "../ai/config";
+import { ResumeData } from "../queue/resumeProcessor";
+import { getQualitativeScorePrompt } from "../ai/prompts";
+
+const aiProvider = createAIProvider(aiConfig);
+
 // Common words to filter out from keywords
 const commonWords = new Set([
   "the",
@@ -9,7 +16,7 @@ const commonWords = new Set([
   "in",
   "that",
   "have",
-  "I",
+  "i",
   "it",
   "for",
   "not",
@@ -100,34 +107,97 @@ const commonWords = new Set([
   "day",
   "most",
   "us",
+  "is",
+  "are",
+  "was",
+  "were",
+  "has",
+  "had",
+  "been",
+  "may",
+  "should",
+  "would",
+  "could",
+  "can",
+  "will",
+  "shall",
+  "must",
+  "might",
+  "am",
 ]);
 
-interface EvaluationResult {
-  keywordScore: number;
-  totalScore: number;
+function calculateKeywordScore(
+  jobDescription: string,
+  resumeText: string
+): number {
+  // Convert texts to lowercase for comparison
+  const jobText = jobDescription.toLowerCase();
+  const resumeText_ = resumeText.toLowerCase();
+
+  // Extract meaningful keywords from job description
+  const keywords = jobText
+    .split(/[\s,\.;:\(\)\[\]\{\}]+/) // Split on various delimiters
+    .filter(
+      (word) =>
+        word.length > 2 && // Skip very short words
+        !commonWords.has(word) && // Skip common words
+        /^[a-z]+$/.test(word) // Only keep words with letters
+    );
+
+  if (keywords.length === 0) return 0;
+
+  // Count how many keywords appear in the resume
+  const matches = keywords.filter((keyword) =>
+    resumeText_.includes(keyword)
+  ).length;
+
+  // Calculate score as percentage of matched keywords
+  return matches / keywords.length;
 }
 
-export function evaluateResume(
+async function getQualitativeScore(
   jobDescription: string,
-  extractedText: string
-): EvaluationResult {
-  // Extract keywords from job description
-  const keywords = jobDescription
-    .toLowerCase()
-    .split(/\s+/)
-    .filter((word) => word.length > 2 && !commonWords.has(word));
+  structuredData: ResumeData
+): Promise<number> {
+  try {
+    const prompt = getQualitativeScorePrompt(jobDescription, structuredData);
 
-  if (keywords.length === 0) {
-    return { keywordScore: 0, totalScore: 0 };
+    const result = await aiProvider.completion(
+      prompt,
+      "You are an expert resume evaluator who reviews and scores resumes and outputs only a number between 0 and 1 and nothing else."
+    );
+    const score = parseFloat(result);
+    return isNaN(score) ? 0 : Math.min(Math.max(score, 0), 1);
+  } catch (error) {
+    console.error("Qualitative scoring error:", error);
+    return 0;
   }
+}
 
-  // Count keyword matches in extracted text
-  const text = extractedText.toLowerCase();
-  const matches = keywords.filter((keyword) => text.includes(keyword)).length;
+export async function evaluateResume(
+  jobDescription: string,
+  resumeText: string,
+  structuredData: ResumeData
+): Promise<{
+  keywordScore: number;
+  totalScore: number;
+  qualitativeScore: number;
+}> {
+  // Calculate keyword match score
+  const keywordScore = calculateKeywordScore(jobDescription, resumeText);
 
-  // Calculate scores
-  const keywordScore = matches / keywords.length;
-  const totalScore = keywordScore; // For now, total score is just keyword score
+  // Get qualitative score from AI
+  const qualitativeScore = await getQualitativeScore(
+    jobDescription,
+    structuredData
+  );
 
-  return { keywordScore, totalScore };
+  // Combine scores (giving more weight to qualitative assessment)
+  const totalScore = keywordScore * 0.4 + qualitativeScore * 0.6;
+
+  return {
+    keywordScore,
+    qualitativeScore,
+    totalScore,
+  };
 }
