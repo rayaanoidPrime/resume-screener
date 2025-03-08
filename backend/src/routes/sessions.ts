@@ -176,4 +176,70 @@ router.get("/", authenticateToken, async (req, res) => {
   }
 });
 
+// Get resume details
+router.get(
+  "/:sessionId/resumes/:resumeId",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { sessionId, resumeId } = req.params;
+
+      // First check if the session exists and belongs to the user
+      const session = await prisma.session.findUnique({
+        where: { id: sessionId },
+        select: { id: true, userId: true },
+      });
+
+      if (!session) {
+        res.status(404).json({ error: "Session not found" });
+        return;
+      }
+
+      if (session.userId !== req.user?.id) {
+        res.status(403).json({ error: "Unauthorized access to session" });
+        return;
+      }
+
+      // Get resume with its evaluation
+      const resume = await prisma.resume.findUnique({
+        where: { id: resumeId },
+        include: {
+          evaluation: true,
+        },
+      });
+
+      if (!resume) {
+        res.status(404).json({ error: "Resume not found" });
+        return;
+      }
+
+      // Determine mimeType from filePath
+      const mimeType = resume.filePath.toLowerCase().endsWith(".pdf")
+        ? "application/pdf"
+        : resume.filePath.toLowerCase().endsWith(".doc")
+        ? "application/msword"
+        : resume.filePath.toLowerCase().endsWith(".docx")
+        ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        : "application/octet-stream";
+
+      // Format the response
+      const response = {
+        filePath: resume.filePath,
+        extractedText: resume.extractedText || "",
+        mimeType,
+        structuredData: resume.structuredData,
+        metricScores: {
+          keywordScore: resume.evaluation?.keywordScore || 0,
+          totalScore: resume.evaluation?.totalScore || 0,
+        },
+      };
+
+      res.status(200).json(response);
+    } catch (error) {
+      console.error("Resume details retrieval error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+);
+
 export default router;

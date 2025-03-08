@@ -66,6 +66,64 @@ interface ResumeUpdateResponse {
   status: string;
 }
 
+interface ResumeDetails {
+  filePath: string;
+  extractedText: string;
+  mimeType: string;
+  structuredData: {
+    contact_info: {
+      name: string | null;
+      email: string | null;
+      phone: string | null;
+      location: string | null;
+      linkedin: string | null;
+      portfolio: string | null;
+    };
+    summary: string | null;
+    experience: {
+      company: string;
+      title: string;
+      dates: string;
+      location: string;
+      description: string[];
+    }[];
+    education:
+      | {
+          institution: string;
+          degree: string;
+          field: string;
+          dates: string;
+          gpa: string | null;
+        }[]
+      | null;
+    skills: {
+      programming_languages?: string[];
+      frameworks?: string[];
+      databases?: string[];
+      tools?: string[];
+    };
+    certifications: {
+      name: string;
+      issuer: string;
+      date: string;
+    }[];
+    projects: {
+      name: string;
+      description: string;
+      technologies: string[];
+      link: string;
+    }[];
+    languages: {
+      language: string;
+      proficiency: string;
+    }[];
+  };
+  metricScores: {
+    keywordScore: number;
+    totalScore: number;
+  };
+}
+
 const handleApiError = (error: unknown) => {
   if (axios.isAxiosError(error)) {
     const axiosError = error as AxiosError<{ error: string }>;
@@ -203,6 +261,24 @@ export const sessionApi = {
       const response = await axios.get(`${API_URL}/sessions`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      return response.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  async getResumeDetails(
+    sessionId: string,
+    resumeId: string,
+    token: string
+  ): Promise<ResumeDetails> {
+    try {
+      const response = await axios.get(
+        `${API_URL}/sessions/${sessionId}/resumes/${resumeId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       return response.data;
     } catch (error) {
       throw handleApiError(error);
