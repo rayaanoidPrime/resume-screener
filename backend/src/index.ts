@@ -34,8 +34,8 @@ try {
 
 // Routes
 app.use("/auth", authRoutes);
-app.use("/sessions", sessionRoutes);
-app.use("/sessions", resumeRoutes); // Mount on /sessions for /sessions/:sessionId/resumes
+app.use("/sessions", resumeRoutes); // Mount resume routes first
+app.use("/sessions", sessionRoutes); // Then mount session routes
 
 // Health check endpoint
 app.get("/health", async (req, res) => {

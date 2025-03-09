@@ -124,6 +124,11 @@ router.get(
   authenticateToken,
   async (req, res) => {
     try {
+      console.log("Received status request:", {
+        sessionId: req.params.sessionId,
+        jobIds: req.query.jobIds,
+      });
+
       const { jobIds } = req.query;
       const { sessionId } = req.params;
 
