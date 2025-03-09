@@ -35,13 +35,14 @@ Welcome to the project! This guide will walk you through **forking the repositor
 ### **2️⃣ Install Dependencies**  
 Install dependencies via nom for each - backend as well as frontend.
 
-### **3️⃣ Install Docker (Optional but Recommended)**  
-For local development, we recommend running dependencies (like MongoDB, Redis) via **Docker**.  
+### **3️⃣ Install Docker **  
+For local development, we recommend running dependencies (like postgres, Redis) via **Docker**.  
 
 1. Install **Docker Desktop**: [Docker Installation Guide](https://docs.docker.com/get-docker/)  
 2. Start the necessary services:
 
    ```sh
+cd backend
    docker compose up -d
    ```
 
@@ -54,8 +55,9 @@ Before starting a feature, check `prompt_plan.md` for structured guidance on how
 
 **🚀 Recommended Workflow:**  
 1. **Review `prompt_plan.md`** – This document contains an outline for the feature.  
-2. **Run code generation (if applicable)** – Use LLM tools to scaffold boilerplate code.  
-3. **Update `todo.md`** – Break down tasks into smaller steps and check them off as you progress.  
+2. **Run code generation (if applicable)** – Use Windsurf/Cursor/any codegen tool using the prompts in the order given.
+3. **Update `prompt_plan.md` as needed for including new prompts for new additional features or modification of existing features. 
+4. **Update `todo.md`** – Break down tasks into smaller steps and check them off as you progress.  
 
 ---
 
@@ -94,19 +96,7 @@ git push origin main
 ---
 
 ## **💡 Contribution Guidelines**  
-- Follow the **TypeScript coding standards** (strict types, error handling, relative imports).  
-- Use **barrel imports** to keep code clean.  
-- Keep PRs **small and focused**—one feature or fix per PR.  
-- Ensure all tests pass before submitting a PR.  
+- Follow the **TypeScript coding standards** (strict types, error handling, relative imports).   
+- Keep PRs **small and focused**—one feature or fix per PR.
 
 ---
-
-## **🎯 Need Help?**  
-If you run into issues:  
-- Check existing discussions and issues on GitHub.  
-- Join the project's Slack/Discord for quick help.  
-- Create a new GitHub issue if your problem isn't covered.  
-
----
-
-**Happy coding! 🚀**
