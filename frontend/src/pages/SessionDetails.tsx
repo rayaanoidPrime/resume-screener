@@ -2,7 +2,6 @@ import { FormEvent, useState, useRef, useEffect } from "react";
 import { useParams, Navigate } from "react-router";
 import { useAuth } from "../context/AuthContext";
 import { sessionApi } from "../services/api";
-import ScreeningSteps from "../components/ScreeningSteps";
 import CandidateMetrics from "../components/CandidateMetrics";
 import CandidateComparison from "../components/CandidateComparison";
 import SkillsMatchVisualizer from "../components/SkillsMatchVisualizer";
@@ -193,10 +192,9 @@ export default function SessionDetails() {
     null
   );
   const [loadingResume, setLoadingResume] = useState(false);
-  
-  // New state for our enhanced features
-  const [currentStep, setCurrentStep] = useState(1);
-  const [selectedCandidates, setSelectedCandidates] = useState<RankedCandidate[]>([]);
+  const [selectedCandidates, setSelectedCandidates] = useState<
+    RankedCandidate[]
+  >([]);
   const [showComparison, setShowComparison] = useState(false);
 
   useEffect(() => {
@@ -230,22 +228,20 @@ export default function SessionDetails() {
 
     setLoading(true);
     setError("");
-    
+
     console.log("Fetching rankings for session:", sessionId);
-    
+
     try {
       const data = await sessionApi.getRankings(sessionId, token);
       console.log("Received rankings:", data);
-      
+
       if (data && Array.isArray(data)) {
         setRankings(data);
-        
-        // Update current step to evaluation step
-        setCurrentStep(3);
-        
+
         // Show success message
-        const successMessage = document.createElement('div');
-        successMessage.className = 'fixed bottom-4 right-4 bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded shadow-md animate-fadeIn';
+        const successMessage = document.createElement("div");
+        successMessage.className =
+          "fixed bottom-4 right-4 bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded shadow-md animate-fadeIn";
         successMessage.innerHTML = `
           <div class="flex">
             <div class="flex-shrink-0">
@@ -259,7 +255,7 @@ export default function SessionDetails() {
           </div>
         `;
         document.body.appendChild(successMessage);
-        
+
         // Remove the message after 5 seconds
         setTimeout(() => {
           if (document.body.contains(successMessage)) {
@@ -284,18 +280,25 @@ export default function SessionDetails() {
 
   const handleJobStatusUpdate = (statuses: Record<string, string>) => {
     console.log("Updating job statuses:", statuses);
-    
+
     // Create a new status map with the updated statuses
     const statusMap: Record<string, JobStatus> = { ...jobStatuses };
-    
+
     Object.entries(statuses).forEach(([jobId, status]) => {
       statusMap[jobId] = {
         jobId,
         status,
-        progress: status === "completed" ? 100 : status === "failed" ? 0 : status === "active" ? 75 : 25,
+        progress:
+          status === "completed"
+            ? 100
+            : status === "failed"
+            ? 0
+            : status === "active"
+            ? 75
+            : 25,
       };
     });
-    
+
     console.log("Updated status map:", statusMap);
     setJobStatuses(statusMap);
   };
@@ -303,9 +306,9 @@ export default function SessionDetails() {
   useEffect(() => {
     if (!sessionId || !token || !uploadedResumes.length) return;
 
-    console.log("Setting up polling for job statuses...", { 
-      uploadedResumes, 
-      jobStatuses: Object.keys(jobStatuses).length 
+    console.log("Setting up polling for job statuses...", {
+      uploadedResumes,
+      jobStatuses: Object.keys(jobStatuses).length,
     });
 
     const jobIds = uploadedResumes.flatMap((resume) => resume.jobIds);
@@ -328,21 +331,23 @@ export default function SessionDetails() {
         const allCompleted = Object.values(statuses).every(
           (status) => status === "completed" || status === "failed"
         );
-        
+
         if (allCompleted) {
           console.log("All jobs completed or failed, stopping polling");
           if (pollingIntervalRef.current) {
             clearInterval(pollingIntervalRef.current);
             pollingIntervalRef.current = undefined;
           }
-          
+
           // Automatically fetch rankings when all jobs are completed
           const hasCompletedJobs = Object.values(statuses).some(
             (status) => status === "completed"
           );
-          
+
           if (hasCompletedJobs) {
-            console.log("Some jobs completed successfully, fetching rankings...");
+            console.log(
+              "Some jobs completed successfully, fetching rankings..."
+            );
             // Add a small delay to ensure backend processing is complete
             setTimeout(() => {
               fetchRankings();
@@ -486,35 +491,15 @@ export default function SessionDetails() {
     }
   };
 
-  // Calculate metrics for ScreeningSteps component
-  const totalResumes = uploadedResumes.length;
-  const processedResumes = uploadedResumes.filter(
-    resume => {
-      // Check if any of the job IDs for this resume have an active status
-      return !resume.files.some(file => {
-        const jobStatus = jobStatuses[file.jobId];
-        return jobStatus && (
-          jobStatus.status === "active" || 
-          jobStatus.status === "waiting" || 
-          jobStatus.status === "delayed"
-        );
-      });
-    }
-  ).length;
-  const evaluatedResumes = rankings.length;
-
-  // Handle step navigation
-  const handleStepClick = (step: number) => {
-    setCurrentStep(step);
-    // Additional logic for step navigation could be added here
-  };
-
   // Toggle candidate selection for comparison
   const toggleCandidateSelection = (candidate: RankedCandidate) => {
-    if (selectedCandidates.some(c => c.resumeId === candidate.resumeId)) {
-      setSelectedCandidates(selectedCandidates.filter(c => c.resumeId !== candidate.resumeId));
+    if (selectedCandidates.some((c) => c.resumeId === candidate.resumeId)) {
+      setSelectedCandidates(
+        selectedCandidates.filter((c) => c.resumeId !== candidate.resumeId)
+      );
     } else {
-      if (selectedCandidates.length < 5) { // Limit to 5 candidates for comparison
+      if (selectedCandidates.length < 5) {
+        // Limit to 5 candidates for comparison
         setSelectedCandidates([...selectedCandidates, candidate]);
       } else {
         setError("You can compare up to 5 candidates at a time");
@@ -531,15 +516,6 @@ export default function SessionDetails() {
         </div>
       ) : sessionDetails ? (
         <div className="space-y-8">
-          {/* Add ScreeningSteps component */}
-          <ScreeningSteps 
-            currentStep={currentStep}
-            totalResumes={totalResumes}
-            processedResumes={processedResumes}
-            evaluatedResumes={evaluatedResumes}
-            onStepClick={handleStepClick}
-          />
-
           {/* Job Details Header */}
           <div className="bg-white shadow rounded-lg overflow-hidden">
             <div className="bg-gradient-to-r from-blue-600 to-blue-800 px-6 py-4">
@@ -681,7 +657,7 @@ export default function SessionDetails() {
                 {uploading ? "Uploading..." : "Upload"}
               </button>
             </form>
-            
+
             {/* Processing Status Section */}
             {Object.keys(jobStatuses).length > 0 && (
               <div className="mt-6 border-t border-gray-200 pt-4">
@@ -690,39 +666,71 @@ export default function SessionDetails() {
                     Processing Status
                   </h3>
                   <div className="flex items-center text-sm text-gray-500">
-                    <svg className="h-4 w-4 mr-1 text-gray-400 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    <svg
+                      className="h-4 w-4 mr-1 text-gray-400 animate-spin"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                      />
                     </svg>
                     <span>Updating every 5 seconds</span>
                   </div>
                 </div>
-                
+
                 {/* Summary stats */}
                 <div className="grid grid-cols-4 gap-4 mb-4">
                   <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
-                    <div className="text-sm font-medium text-blue-800">Total Jobs</div>
-                    <div className="text-2xl font-bold text-blue-900">{Object.keys(jobStatuses).length}</div>
+                    <div className="text-sm font-medium text-blue-800">
+                      Total Jobs
+                    </div>
+                    <div className="text-2xl font-bold text-blue-900">
+                      {Object.keys(jobStatuses).length}
+                    </div>
                   </div>
                   <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
-                    <div className="text-sm font-medium text-yellow-800">Waiting</div>
+                    <div className="text-sm font-medium text-yellow-800">
+                      Waiting
+                    </div>
                     <div className="text-2xl font-bold text-yellow-900">
-                      {Object.values(jobStatuses).filter(s => s.status === 'waiting').length}
+                      {
+                        Object.values(jobStatuses).filter(
+                          (s) => s.status === "waiting"
+                        ).length
+                      }
                     </div>
                   </div>
                   <div className="bg-green-50 rounded-lg p-3 border border-green-200">
-                    <div className="text-sm font-medium text-green-800">Completed</div>
+                    <div className="text-sm font-medium text-green-800">
+                      Completed
+                    </div>
                     <div className="text-2xl font-bold text-green-900">
-                      {Object.values(jobStatuses).filter(s => s.status === 'completed').length}
+                      {
+                        Object.values(jobStatuses).filter(
+                          (s) => s.status === "completed"
+                        ).length
+                      }
                     </div>
                   </div>
                   <div className="bg-red-50 rounded-lg p-3 border border-red-200">
-                    <div className="text-sm font-medium text-red-800">Failed</div>
+                    <div className="text-sm font-medium text-red-800">
+                      Failed
+                    </div>
                     <div className="text-2xl font-bold text-red-900">
-                      {Object.values(jobStatuses).filter(s => s.status === 'failed').length}
+                      {
+                        Object.values(jobStatuses).filter(
+                          (s) => s.status === "failed"
+                        ).length
+                      }
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
                   {Object.values(jobStatuses).map((status) => (
                     <div
@@ -731,31 +739,77 @@ export default function SessionDetails() {
                     >
                       <div className="flex justify-between items-center mb-1">
                         <div className="flex items-center">
-                          {status.status === 'completed' && (
-                            <svg className="h-5 w-5 mr-2 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          {status.status === "completed" && (
+                            <svg
+                              className="h-5 w-5 mr-2 text-green-500"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M5 13l4 4L19 7"
+                              />
                             </svg>
                           )}
-                          {status.status === 'failed' && (
-                            <svg className="h-5 w-5 mr-2 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          {status.status === "failed" && (
+                            <svg
+                              className="h-5 w-5 mr-2 text-red-500"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M6 18L18 6M6 6l12 12"
+                              />
                             </svg>
                           )}
-                          {status.status === 'active' && (
-                            <svg className="h-5 w-5 mr-2 text-blue-500 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          {status.status === "active" && (
+                            <svg
+                              className="h-5 w-5 mr-2 text-blue-500 animate-spin"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                              />
                             </svg>
                           )}
-                          {status.status === 'waiting' && (
-                            <svg className="h-5 w-5 mr-2 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          {status.status === "waiting" && (
+                            <svg
+                              className="h-5 w-5 mr-2 text-yellow-500"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                              />
                             </svg>
                           )}
-                          <span className={`text-sm font-medium ${
-                            status.status === 'completed' ? 'text-green-600' : 
-                            status.status === 'failed' ? 'text-red-600' : 
-                            status.status === 'active' ? 'text-blue-600' : 'text-yellow-600'
-                          }`}>
+                          <span
+                            className={`text-sm font-medium ${
+                              status.status === "completed"
+                                ? "text-green-600"
+                                : status.status === "failed"
+                                ? "text-red-600"
+                                : status.status === "active"
+                                ? "text-blue-600"
+                                : "text-yellow-600"
+                            }`}
+                          >
                             Job {status.jobId.substring(0, 8)}
                           </span>
                         </div>
@@ -771,9 +825,13 @@ export default function SessionDetails() {
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div
                           className={`rounded-full h-2 transition-all duration-500 ${
-                            status.status === 'completed' ? 'bg-green-500' : 
-                            status.status === 'failed' ? 'bg-red-500' : 
-                            status.status === 'active' ? 'bg-blue-500' : 'bg-yellow-500'
+                            status.status === "completed"
+                              ? "bg-green-500"
+                              : status.status === "failed"
+                              ? "bg-red-500"
+                              : status.status === "active"
+                              ? "bg-blue-500"
+                              : "bg-yellow-500"
                           }`}
                           style={{ width: `${status.progress}%` }}
                         />
@@ -781,30 +839,56 @@ export default function SessionDetails() {
                     </div>
                   ))}
                 </div>
-                
+
                 {/* Completion notice */}
-                {Object.values(jobStatuses).every(status => 
-                  status.status === 'completed' || status.status === 'failed'
+                {Object.values(jobStatuses).every(
+                  (status) =>
+                    status.status === "completed" || status.status === "failed"
                 ) && (
                   <div className="mt-4 p-4 bg-green-50 text-green-700 rounded-md border border-green-200 animate-fadeIn">
                     <div className="flex items-start">
                       <div className="flex-shrink-0">
-                        <svg className="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        <svg
+                          className="h-5 w-5 text-green-500"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 13l4 4L19 7"
+                          />
                         </svg>
                       </div>
                       <div className="ml-3">
-                        <h3 className="text-sm font-medium text-green-800">Processing Complete</h3>
+                        <h3 className="text-sm font-medium text-green-800">
+                          Processing Complete
+                        </h3>
                         <div className="mt-2 text-sm text-green-700">
-                          <p>All resume processing jobs have completed. You can now evaluate the candidates.</p>
+                          <p>
+                            All resume processing jobs have completed. You can
+                            now evaluate the candidates.
+                          </p>
                         </div>
                         <div className="mt-4">
                           <button
                             onClick={fetchRankings}
                             className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-on-dark bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
                           >
-                            <svg className="mr-2 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            <svg
+                              className="mr-2 h-5 w-5 text-white"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                              />
                             </svg>
                             Evaluate Candidates
                           </button>
@@ -820,8 +904,10 @@ export default function SessionDetails() {
           {/* Rankings Section with CandidateMetrics */}
           <div className="bg-white shadow rounded-lg p-6">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold text-gray-900">Candidate Rankings</h2>
-              
+              <h2 className="text-xl font-semibold text-gray-900">
+                Candidate Rankings
+              </h2>
+
               {/* Add Compare button when candidates are selected */}
               {selectedCandidates.length > 1 && (
                 <button
@@ -844,7 +930,7 @@ export default function SessionDetails() {
                 <div className="mb-8">
                   <CandidateMetrics rankings={rankings} />
                 </div>
-                
+
                 {/* Existing rankings table with selection checkboxes */}
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
@@ -875,12 +961,25 @@ export default function SessionDetails() {
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {rankings.map((candidate, index) => (
-                        <tr key={candidate.resumeId} className={selectedCandidates.some(c => c.resumeId === candidate.resumeId) ? "bg-blue-50" : ""}>
+                        <tr
+                          key={candidate.resumeId}
+                          className={
+                            selectedCandidates.some(
+                              (c) => c.resumeId === candidate.resumeId
+                            )
+                              ? "bg-blue-50"
+                              : ""
+                          }
+                        >
                           <td className="px-3 py-4 whitespace-nowrap">
-                            <input 
-                              type="checkbox" 
-                              checked={selectedCandidates.some(c => c.resumeId === candidate.resumeId)}
-                              onChange={() => toggleCandidateSelection(candidate)}
+                            <input
+                              type="checkbox"
+                              checked={selectedCandidates.some(
+                                (c) => c.resumeId === candidate.resumeId
+                              )}
+                              onChange={() =>
+                                toggleCandidateSelection(candidate)
+                              }
                               className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                             />
                           </td>
@@ -893,12 +992,14 @@ export default function SessionDetails() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             <div>
-                              {candidate.structuredData?.contact_info?.email && (
+                              {candidate.structuredData?.contact_info
+                                ?.email && (
                                 <div>
                                   {candidate.structuredData.contact_info.email}
                                 </div>
                               )}
-                              {candidate.structuredData?.contact_info?.phone && (
+                              {candidate.structuredData?.contact_info
+                                ?.phone && (
                                 <div>
                                   {candidate.structuredData.contact_info.phone}
                                 </div>
@@ -913,7 +1014,9 @@ export default function SessionDetails() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <button
-                              onClick={() => handleViewResume(candidate.resumeId)}
+                              onClick={() =>
+                                handleViewResume(candidate.resumeId)
+                              }
                               className="text-blue-600 hover:text-blue-900 mr-4"
                             >
                               View Resume
@@ -984,30 +1087,8 @@ export default function SessionDetails() {
 
             {/* Modal Content */}
             <div className="flex gap-6 flex-1 min-h-0 pt-4">
-              {/* Left Panel - Document Preview */}
-              <div className="w-1/3 flex flex-col bg-gray-50 rounded-lg p-4">
-                <h4 className="text-sm font-semibold text-gray-900 mb-3">
-                  Document Preview
-                </h4>
-                <div className="flex-1 border border-gray-200 rounded-lg overflow-hidden bg-white">
-                  {viewingResume.mimeType === "application/pdf" ? (
-                    <iframe
-                      src={`/uploads/${viewingResume.filePath}`}
-                      className="w-full h-full"
-                      title="PDF Preview"
-                    />
-                  ) : (
-                    <div className="w-full h-full p-4 overflow-auto">
-                      <p className="text-sm text-gray-500 text-center mt-4">
-                        Preview not available for this file type
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
               {/* Middle Panel - Structured Data */}
-              <div className="w-1/3 flex flex-col">
+              <div className="w-1/2 flex flex-col overflow-hidden">
                 <h4 className="text-sm font-semibold text-gray-900 mb-3">
                   Parsed Information
                 </h4>
@@ -1016,9 +1097,9 @@ export default function SessionDetails() {
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
                   </div>
                 ) : resumeDetails ? (
-                  <div className="flex-1 overflow-y-auto pr-4 space-y-6">
+                  <div className="flex-1 overflow-y-auto space-y-4 pr-2">
                     {/* Contact Information */}
-                    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                    <div className="bg-white rounded-lg border border-gray-200">
                       <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
                         <h5 className="font-semibold text-gray-900">
                           Contact Information
@@ -1030,7 +1111,7 @@ export default function SessionDetails() {
                         )
                           .filter(([_, value]) => value !== null)
                           .map(([key, value]) => (
-                            <p key={key} className="text-sm">
+                            <p key={key} className="text-sm break-words">
                               <span className="font-medium text-gray-700 capitalize">
                                 {key.replace("_", " ")}:
                               </span>{" "}
@@ -1042,14 +1123,14 @@ export default function SessionDetails() {
 
                     {/* Summary */}
                     {resumeDetails.structuredData.summary && (
-                      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                      <div className="bg-white rounded-lg border border-gray-200">
                         <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
                           <h5 className="font-semibold text-gray-900">
                             Professional Summary
                           </h5>
                         </div>
                         <div className="p-4">
-                          <p className="text-sm text-gray-700">
+                          <p className="text-sm text-gray-700 break-words">
                             {resumeDetails.structuredData.summary}
                           </p>
                         </div>
@@ -1058,7 +1139,7 @@ export default function SessionDetails() {
 
                     {/* Experience */}
                     {resumeDetails.structuredData.experience.length > 0 && (
-                      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                      <div className="bg-white rounded-lg border border-gray-200">
                         <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
                           <h5 className="font-semibold text-gray-900">
                             Work Experience
@@ -1068,10 +1149,10 @@ export default function SessionDetails() {
                           {resumeDetails.structuredData.experience.map(
                             (exp, index) => (
                               <div key={index} className="p-4">
-                                <h6 className="font-medium text-gray-900">
+                                <h6 className="font-medium text-gray-900 break-words">
                                   {exp.title}
                                 </h6>
-                                <p className="text-sm text-gray-700 mt-1">
+                                <p className="text-sm text-gray-700 mt-1 break-words">
                                   {exp.company}
                                 </p>
                                 <p className="text-sm text-gray-500 mt-1">
@@ -1082,7 +1163,7 @@ export default function SessionDetails() {
                                     {exp.description.map((desc, i) => (
                                       <li
                                         key={i}
-                                        className="text-sm text-gray-600 pl-4 relative before:content-['•'] before:absolute before:left-0 before:text-gray-400"
+                                        className="text-sm text-gray-600 pl-4 relative before:content-['•'] before:absolute before:left-0 before:text-gray-400 break-words"
                                       >
                                         {desc}
                                       </li>
@@ -1099,26 +1180,26 @@ export default function SessionDetails() {
                     {/* Skills */}
                     {Object.keys(resumeDetails.structuredData.skills).length >
                       0 && (
-                      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                      <div className="bg-white rounded-lg border border-gray-200">
                         <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
                           <h5 className="font-semibold text-gray-900">
                             Skills
                           </h5>
                         </div>
-                        <div className="p-4 space-y-4">
+                        <div className="p-4">
                           {Object.entries(
                             resumeDetails.structuredData.skills
                           ).map(([category, skills]) =>
                             skills && skills.length > 0 ? (
-                              <div key={category}>
+                              <div key={category} className="mb-4 last:mb-0">
                                 <h6 className="text-sm font-medium text-gray-700 mb-2 capitalize">
                                   {category.replace("_", " ")}
                                 </h6>
-                                <div className="flex flex-wrap gap-2">
+                                <div className="flex flex-wrap gap-1.5">
                                   {skills.map((skill, index) => (
                                     <span
                                       key={index}
-                                      className="inline-flex items-center px-2.5 py-1.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700"
+                                      className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700"
                                     >
                                       {skill}
                                     </span>
@@ -1133,7 +1214,7 @@ export default function SessionDetails() {
 
                     {/* Education */}
                     {resumeDetails.structuredData.education && (
-                      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                      <div className="bg-white rounded-lg border border-gray-200">
                         <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
                           <h5 className="font-semibold text-gray-900">
                             Education
@@ -1143,10 +1224,10 @@ export default function SessionDetails() {
                           {resumeDetails.structuredData.education.map(
                             (edu, index) => (
                               <div key={index} className="p-4">
-                                <h6 className="font-medium text-gray-900">
+                                <h6 className="font-medium text-gray-900 break-words">
                                   {edu.degree} in {edu.field}
                                 </h6>
-                                <p className="text-sm text-gray-700 mt-1">
+                                <p className="text-sm text-gray-700 mt-1 break-words">
                                   {edu.institution}
                                 </p>
                                 <p className="text-sm text-gray-500 mt-1">
@@ -1166,7 +1247,7 @@ export default function SessionDetails() {
 
                     {/* Projects */}
                     {resumeDetails.structuredData.projects.length > 0 && (
-                      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                      <div className="bg-white rounded-lg border border-gray-200">
                         <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
                           <h5 className="font-semibold text-gray-900">
                             Projects
@@ -1176,8 +1257,8 @@ export default function SessionDetails() {
                           {resumeDetails.structuredData.projects.map(
                             (project, index) => (
                               <div key={index} className="p-4">
-                                <div className="flex items-center justify-between">
-                                  <h6 className="font-medium text-gray-900">
+                                <div className="flex items-center justify-between flex-wrap gap-2">
+                                  <h6 className="font-medium text-gray-900 break-words">
                                     {project.name}
                                   </h6>
                                   {project.link && (
@@ -1191,7 +1272,7 @@ export default function SessionDetails() {
                                     </a>
                                   )}
                                 </div>
-                                <p className="text-sm text-gray-600 mt-2">
+                                <p className="text-sm text-gray-600 mt-2 break-words">
                                   {project.description}
                                 </p>
                                 {project.technologies.length > 0 && (
@@ -1212,6 +1293,26 @@ export default function SessionDetails() {
                         </div>
                       </div>
                     )}
+
+                    {/* Skills Match Visualizer */}
+                    <div className="bg-white rounded-lg border border-gray-200">
+                      <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                        <h5 className="font-semibold text-gray-900">
+                          Skills Match
+                        </h5>
+                      </div>
+                      <div className="p-4">
+                        <SkillsMatchVisualizer
+                          requiredSkills={sessionDetails?.requiredSkills || []}
+                          preferredSkills={
+                            sessionDetails?.preferredSkills || []
+                          }
+                          candidateSkills={
+                            resumeDetails.structuredData.skills || {}
+                          }
+                        />
+                      </div>
+                    </div>
                   </div>
                 ) : (
                   <div className="flex-1 flex items-center justify-center">
@@ -1220,21 +1321,10 @@ export default function SessionDetails() {
                     </p>
                   </div>
                 )}
-                
-                {/* Add Skills Match Visualizer */}
-                {resumeDetails && (
-                  <div className="mt-6">
-                    <SkillsMatchVisualizer 
-                      requiredSkills={sessionDetails?.requiredSkills || []}
-                      preferredSkills={sessionDetails?.preferredSkills || []}
-                      candidateSkills={resumeDetails.structuredData.skills || {}}
-                    />
-                  </div>
-                )}
               </div>
 
               {/* Right Panel - Extracted Text */}
-              <div className="w-1/3 flex flex-col bg-gray-50 rounded-lg p-4">
+              <div className="w-1/2 flex flex-col bg-gray-50 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="text-sm font-semibold text-gray-900">
                     Raw Text
@@ -1340,25 +1430,25 @@ export default function SessionDetails() {
 
       {/* Candidate Comparison Modal */}
       {showComparison && (
-        <CandidateComparison 
-          candidates={selectedCandidates.map(candidate => ({
+        <CandidateComparison
+          candidates={selectedCandidates.map((candidate) => ({
             resumeId: candidate.resumeId,
             candidateId: candidate.candidateId,
             name: candidate.structuredData?.contact_info?.name,
             scores: {
               keywordScore: candidate.scores.keywordScore,
               qualitativeScore: candidate.scores.qualitativeScore || 0,
-              totalScore: candidate.scores.totalScore
+              totalScore: candidate.scores.totalScore,
             },
             structuredData: {
               contact_info: {
                 name: candidate.structuredData.contact_info.name,
                 email: candidate.structuredData.contact_info.email,
-                phone: candidate.structuredData.contact_info.phone
+                phone: candidate.structuredData.contact_info.phone,
               },
               skills: candidate.structuredData.skills,
-              experience: candidate.structuredData.experience
-            }
+              experience: candidate.structuredData.experience,
+            },
           }))}
           requiredSkills={sessionDetails?.requiredSkills || []}
           onClose={() => setShowComparison(false)}
