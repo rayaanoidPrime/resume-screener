@@ -42,7 +42,7 @@ For local development, we recommend running dependencies (like postgres, Redis) 
 2. Start the necessary services:
 
    ```sh
-cd backend
+   cd backend
    docker compose up -d
    ```
 
