@@ -45,6 +45,16 @@ For local development, we recommend running dependencies (like postgres, Redis) 
    cd backend
    docker compose up -d
    ```
+3. set up database tables in postgres.
+
+```sh
+npm run prisma:migrate
+```
+ 
+4. Generate orm client
+```sh
+npm run prisma:generate
+```
 
 ---
 
