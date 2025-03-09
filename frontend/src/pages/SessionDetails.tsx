@@ -2,6 +2,10 @@ import { FormEvent, useState, useRef, useEffect } from "react";
 import { useParams, Navigate } from "react-router";
 import { useAuth } from "../context/AuthContext";
 import { sessionApi } from "../services/api";
+import ScreeningSteps from "../components/ScreeningSteps";
+import CandidateMetrics from "../components/CandidateMetrics";
+import CandidateComparison from "../components/CandidateComparison";
+import SkillsMatchVisualizer from "../components/SkillsMatchVisualizer";
 
 interface JobStatus {
   jobId: string;
@@ -40,6 +44,7 @@ interface RankedCandidate {
   filePath: string;
   scores: {
     keywordScore: number;
+    qualitativeScore?: number;
     totalScore: number;
   };
   structuredData: {
@@ -188,6 +193,11 @@ export default function SessionDetails() {
     null
   );
   const [loadingResume, setLoadingResume] = useState(false);
+  
+  // New state for our enhanced features
+  const [currentStep, setCurrentStep] = useState(1);
+  const [selectedCandidates, setSelectedCandidates] = useState<RankedCandidate[]>([]);
+  const [showComparison, setShowComparison] = useState(false);
 
   useEffect(() => {
     const fetchSessionDetails = async () => {
@@ -219,10 +229,49 @@ export default function SessionDetails() {
     if (!sessionId || !token) return;
 
     setLoading(true);
+    setError("");
+    
+    console.log("Fetching rankings for session:", sessionId);
+    
     try {
       const data = await sessionApi.getRankings(sessionId, token);
-      setRankings(data);
+      console.log("Received rankings:", data);
+      
+      if (data && Array.isArray(data)) {
+        setRankings(data);
+        
+        // Update current step to evaluation step
+        setCurrentStep(3);
+        
+        // Show success message
+        const successMessage = document.createElement('div');
+        successMessage.className = 'fixed bottom-4 right-4 bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded shadow-md animate-fadeIn';
+        successMessage.innerHTML = `
+          <div class="flex">
+            <div class="flex-shrink-0">
+              <svg class="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div class="ml-3">
+              <p class="text-sm font-medium">Successfully evaluated ${data.length} candidates!</p>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(successMessage);
+        
+        // Remove the message after 5 seconds
+        setTimeout(() => {
+          if (document.body.contains(successMessage)) {
+            document.body.removeChild(successMessage);
+          }
+        }, 5000);
+      } else {
+        console.error("Invalid rankings data:", data);
+        setError("Received invalid rankings data from server");
+      }
     } catch (err) {
+      console.error("Error fetching rankings:", err);
       setError(err instanceof Error ? err.message : "Failed to fetch rankings");
     } finally {
       setLoading(false);
@@ -234,38 +283,71 @@ export default function SessionDetails() {
   }
 
   const handleJobStatusUpdate = (statuses: Record<string, string>) => {
-    const statusMap: Record<string, JobStatus> = {};
+    console.log("Updating job statuses:", statuses);
+    
+    // Create a new status map with the updated statuses
+    const statusMap: Record<string, JobStatus> = { ...jobStatuses };
+    
     Object.entries(statuses).forEach(([jobId, status]) => {
       statusMap[jobId] = {
         jobId,
         status,
-        progress: status === "completed" ? 100 : status === "failed" ? 0 : 50,
+        progress: status === "completed" ? 100 : status === "failed" ? 0 : status === "active" ? 75 : 25,
       };
     });
+    
+    console.log("Updated status map:", statusMap);
     setJobStatuses(statusMap);
   };
 
   useEffect(() => {
     if (!sessionId || !token || !uploadedResumes.length) return;
 
+    console.log("Setting up polling for job statuses...", { 
+      uploadedResumes, 
+      jobStatuses: Object.keys(jobStatuses).length 
+    });
+
     const jobIds = uploadedResumes.flatMap((resume) => resume.jobIds);
     if (!jobIds.length) return;
 
+    console.log("Job IDs to poll:", jobIds);
+
     const pollStatus = async () => {
       try {
+        console.log("Polling job statuses...");
         const statuses = await sessionApi.getResumeStatuses(
           sessionId,
           jobIds,
           token
         );
+        console.log("Received job statuses:", statuses);
         handleJobStatusUpdate(statuses);
 
         // Stop polling if all jobs are completed or failed
         const allCompleted = Object.values(statuses).every(
           (status) => status === "completed" || status === "failed"
         );
-        if (allCompleted && pollingIntervalRef.current) {
-          clearInterval(pollingIntervalRef.current);
+        
+        if (allCompleted) {
+          console.log("All jobs completed or failed, stopping polling");
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = undefined;
+          }
+          
+          // Automatically fetch rankings when all jobs are completed
+          const hasCompletedJobs = Object.values(statuses).some(
+            (status) => status === "completed"
+          );
+          
+          if (hasCompletedJobs) {
+            console.log("Some jobs completed successfully, fetching rankings...");
+            // Add a small delay to ensure backend processing is complete
+            setTimeout(() => {
+              fetchRankings();
+            }, 1000);
+          }
         }
       } catch (error) {
         console.error("Failed to get job statuses:", error);
@@ -276,11 +358,16 @@ export default function SessionDetails() {
     pollStatus();
 
     // Set up polling interval
-    pollingIntervalRef.current = window.setInterval(pollStatus, 5000);
+    if (!pollingIntervalRef.current) {
+      console.log("Setting up polling interval (5 seconds)");
+      pollingIntervalRef.current = window.setInterval(pollStatus, 5000);
+    }
 
     return () => {
+      console.log("Cleaning up polling interval");
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = undefined;
       }
     };
   }, [sessionId, token, uploadedResumes]);
@@ -399,6 +486,42 @@ export default function SessionDetails() {
     }
   };
 
+  // Calculate metrics for ScreeningSteps component
+  const totalResumes = uploadedResumes.length;
+  const processedResumes = uploadedResumes.filter(
+    resume => {
+      // Check if any of the job IDs for this resume have an active status
+      return !resume.files.some(file => {
+        const jobStatus = jobStatuses[file.jobId];
+        return jobStatus && (
+          jobStatus.status === "active" || 
+          jobStatus.status === "waiting" || 
+          jobStatus.status === "delayed"
+        );
+      });
+    }
+  ).length;
+  const evaluatedResumes = rankings.length;
+
+  // Handle step navigation
+  const handleStepClick = (step: number) => {
+    setCurrentStep(step);
+    // Additional logic for step navigation could be added here
+  };
+
+  // Toggle candidate selection for comparison
+  const toggleCandidateSelection = (candidate: RankedCandidate) => {
+    if (selectedCandidates.some(c => c.resumeId === candidate.resumeId)) {
+      setSelectedCandidates(selectedCandidates.filter(c => c.resumeId !== candidate.resumeId));
+    } else {
+      if (selectedCandidates.length < 5) { // Limit to 5 candidates for comparison
+        setSelectedCandidates([...selectedCandidates, candidate]);
+      } else {
+        setError("You can compare up to 5 candidates at a time");
+      }
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       {loadingSession ? (
@@ -408,23 +531,32 @@ export default function SessionDetails() {
         </div>
       ) : sessionDetails ? (
         <div className="space-y-8">
+          {/* Add ScreeningSteps component */}
+          <ScreeningSteps 
+            currentStep={currentStep}
+            totalResumes={totalResumes}
+            processedResumes={processedResumes}
+            evaluatedResumes={evaluatedResumes}
+            onStepClick={handleStepClick}
+          />
+
           {/* Job Details Header */}
           <div className="bg-white shadow rounded-lg overflow-hidden">
             <div className="bg-gradient-to-r from-blue-600 to-blue-800 px-6 py-4">
-              <h1 className="text-2xl font-bold text-white">
+              <h1 className="text-2xl font-bold text-white tracking-wide">
                 {sessionDetails.jobTitle}
               </h1>
               <div className="mt-2 flex flex-wrap gap-4">
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-200 text-blue-800">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-white text-blue-800">
                   {sessionDetails.department}
                 </span>
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-200 text-blue-800">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-white text-blue-800">
                   {sessionDetails.location}
                 </span>
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-200 text-blue-800">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-white text-blue-800">
                   {sessionDetails.employmentType}
                 </span>
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-200 text-blue-800">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-white text-blue-800">
                   {sessionDetails.experienceLevel}
                 </span>
               </div>
@@ -542,129 +674,257 @@ export default function SessionDetails() {
                 type="submit"
                 disabled={uploading}
                 className="inline-flex justify-center py-2 px-4 border border-transparent 
-                  shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 
+                  shadow-sm text-sm font-medium rounded-md text-on-dark bg-blue-600 
                   hover:bg-blue-700 focus:outline-none focus:ring-2 
                   focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
               >
                 {uploading ? "Uploading..." : "Upload"}
               </button>
             </form>
-          </div>
-
-          {/* Processing Status Section */}
-          {Object.keys(jobStatuses).length > 0 && (
-            <div className="bg-white shadow rounded-lg p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                Processing Status
-              </h2>
-              <div className="space-y-2">
-                {Object.values(jobStatuses).map((status) => (
-                  <div
-                    key={status.jobId}
-                    className="flex items-center justify-between"
-                  >
-                    <span className={getStatusColor(status.status)}>
-                      Job {status.jobId}: {status.status}
-                    </span>
-                    <div className="w-1/2 bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-blue-600 rounded-full h-2"
-                        style={{ width: `${status.progress}%` }}
-                      />
+            
+            {/* Processing Status Section */}
+            {Object.keys(jobStatuses).length > 0 && (
+              <div className="mt-6 border-t border-gray-200 pt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-lg font-medium text-gray-900">
+                    Processing Status
+                  </h3>
+                  <div className="flex items-center text-sm text-gray-500">
+                    <svg className="h-4 w-4 mr-1 text-gray-400 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <span>Updating every 5 seconds</span>
+                  </div>
+                </div>
+                
+                {/* Summary stats */}
+                <div className="grid grid-cols-4 gap-4 mb-4">
+                  <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                    <div className="text-sm font-medium text-blue-800">Total Jobs</div>
+                    <div className="text-2xl font-bold text-blue-900">{Object.keys(jobStatuses).length}</div>
+                  </div>
+                  <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
+                    <div className="text-sm font-medium text-yellow-800">Waiting</div>
+                    <div className="text-2xl font-bold text-yellow-900">
+                      {Object.values(jobStatuses).filter(s => s.status === 'waiting').length}
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Candidate Rankings Section */}
-          <div className="bg-white shadow rounded-lg p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-gray-900">
-                Candidate Rankings
-              </h2>
-              <button
-                onClick={fetchRankings}
-                disabled={loading}
-                className="inline-flex justify-center py-2 px-4 border border-transparent 
-                  shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 
-                  hover:bg-blue-700 focus:outline-none focus:ring-2 
-                  focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-              >
-                {loading ? "Ranking..." : "Rank Candidates"}
-              </button>
-            </div>
-            {loading ? (
-              <p className="text-gray-600">Loading rankings...</p>
-            ) : rankings.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Rank
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Candidate
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Contact
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Match Score
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Keyword Score
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {rankings.map((candidate, index) => (
-                      <tr key={candidate.resumeId}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          #{index + 1}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {candidate.structuredData?.contact_info?.name ||
-                            "N/A"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          <div>
-                            {candidate.structuredData?.contact_info?.email && (
-                              <div>
-                                {candidate.structuredData.contact_info.email}
-                              </div>
-                            )}
-                            {candidate.structuredData?.contact_info?.phone && (
-                              <div>
-                                {candidate.structuredData.contact_info.phone}
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {formatScore(candidate.scores?.totalScore || 0)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {formatScore(candidate.scores?.keywordScore || 0)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                  <div className="bg-green-50 rounded-lg p-3 border border-green-200">
+                    <div className="text-sm font-medium text-green-800">Completed</div>
+                    <div className="text-2xl font-bold text-green-900">
+                      {Object.values(jobStatuses).filter(s => s.status === 'completed').length}
+                    </div>
+                  </div>
+                  <div className="bg-red-50 rounded-lg p-3 border border-red-200">
+                    <div className="text-sm font-medium text-red-800">Failed</div>
+                    <div className="text-2xl font-bold text-red-900">
+                      {Object.values(jobStatuses).filter(s => s.status === 'failed').length}
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+                  {Object.values(jobStatuses).map((status) => (
+                    <div
+                      key={status.jobId}
+                      className="bg-gray-50 rounded-lg p-3 border border-gray-200 transition-all duration-200 hover:shadow-md"
+                    >
+                      <div className="flex justify-between items-center mb-1">
+                        <div className="flex items-center">
+                          {status.status === 'completed' && (
+                            <svg className="h-5 w-5 mr-2 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                          {status.status === 'failed' && (
+                            <svg className="h-5 w-5 mr-2 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          )}
+                          {status.status === 'active' && (
+                            <svg className="h-5 w-5 mr-2 text-blue-500 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                          )}
+                          {status.status === 'waiting' && (
+                            <svg className="h-5 w-5 mr-2 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          )}
+                          <span className={`text-sm font-medium ${
+                            status.status === 'completed' ? 'text-green-600' : 
+                            status.status === 'failed' ? 'text-red-600' : 
+                            status.status === 'active' ? 'text-blue-600' : 'text-yellow-600'
+                          }`}>
+                            Job {status.jobId.substring(0, 8)}
+                          </span>
+                        </div>
+                        <div className="flex items-center">
+                          <span className="text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-800">
+                            {status.status.toUpperCase()}
+                          </span>
+                          <span className="ml-2 text-xs text-gray-500">
+                            {status.progress}%
+                          </span>
+                        </div>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div
+                          className={`rounded-full h-2 transition-all duration-500 ${
+                            status.status === 'completed' ? 'bg-green-500' : 
+                            status.status === 'failed' ? 'bg-red-500' : 
+                            status.status === 'active' ? 'bg-blue-500' : 'bg-yellow-500'
+                          }`}
+                          style={{ width: `${status.progress}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Completion notice */}
+                {Object.values(jobStatuses).every(status => 
+                  status.status === 'completed' || status.status === 'failed'
+                ) && (
+                  <div className="mt-4 p-4 bg-green-50 text-green-700 rounded-md border border-green-200 animate-fadeIn">
+                    <div className="flex items-start">
+                      <div className="flex-shrink-0">
+                        <svg className="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <h3 className="text-sm font-medium text-green-800">Processing Complete</h3>
+                        <div className="mt-2 text-sm text-green-700">
+                          <p>All resume processing jobs have completed. You can now evaluate the candidates.</p>
+                        </div>
+                        <div className="mt-4">
                           <button
-                            onClick={() => handleViewResume(candidate.resumeId)}
-                            className="text-blue-600 hover:text-blue-900 mr-4"
+                            onClick={fetchRankings}
+                            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-on-dark bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
                           >
-                            View Resume
+                            <svg className="mr-2 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            </svg>
+                            Evaluate Candidates
                           </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
+            )}
+          </div>
+
+          {/* Rankings Section with CandidateMetrics */}
+          <div className="bg-white shadow rounded-lg p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold text-gray-900">Candidate Rankings</h2>
+              
+              {/* Add Compare button when candidates are selected */}
+              {selectedCandidates.length > 1 && (
+                <button
+                  onClick={() => setShowComparison(true)}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-on-dark bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Compare Selected ({selectedCandidates.length})
+                </button>
+              )}
+            </div>
+
+            {loading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+                <p className="mt-4 text-gray-600">Evaluating candidates...</p>
+              </div>
+            ) : rankings.length > 0 ? (
+              <>
+                {/* Add CandidateMetrics component */}
+                <div className="mb-8">
+                  <CandidateMetrics rankings={rankings} />
+                </div>
+                
+                {/* Existing rankings table with selection checkboxes */}
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Select
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Rank
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Candidate
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Contact
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Match Score
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Keyword Score
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {rankings.map((candidate, index) => (
+                        <tr key={candidate.resumeId} className={selectedCandidates.some(c => c.resumeId === candidate.resumeId) ? "bg-blue-50" : ""}>
+                          <td className="px-3 py-4 whitespace-nowrap">
+                            <input 
+                              type="checkbox" 
+                              checked={selectedCandidates.some(c => c.resumeId === candidate.resumeId)}
+                              onChange={() => toggleCandidateSelection(candidate)}
+                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                            />
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            #{index + 1}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {candidate.structuredData?.contact_info?.name ||
+                              "N/A"}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div>
+                              {candidate.structuredData?.contact_info?.email && (
+                                <div>
+                                  {candidate.structuredData.contact_info.email}
+                                </div>
+                              )}
+                              {candidate.structuredData?.contact_info?.phone && (
+                                <div>
+                                  {candidate.structuredData.contact_info.phone}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {formatScore(candidate.scores?.totalScore || 0)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {formatScore(candidate.scores?.keywordScore || 0)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <button
+                              onClick={() => handleViewResume(candidate.resumeId)}
+                              className="text-blue-600 hover:text-blue-900 mr-4"
+                            >
+                              View Resume
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             ) : (
               <p className="text-gray-600">No evaluated resumes yet.</p>
             )}
@@ -682,8 +942,9 @@ export default function SessionDetails() {
         </div>
       )}
 
+      {/* Resume Viewing Modal with SkillsMatchVisualizer */}
       {viewingResume && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-7xl h-[90vh] flex flex-col">
             {/* Modal Header */}
             <div className="flex justify-between items-center pb-4 border-b border-gray-200">
@@ -959,6 +1220,17 @@ export default function SessionDetails() {
                     </p>
                   </div>
                 )}
+                
+                {/* Add Skills Match Visualizer */}
+                {resumeDetails && (
+                  <div className="mt-6">
+                    <SkillsMatchVisualizer 
+                      requiredSkills={sessionDetails?.requiredSkills || []}
+                      preferredSkills={sessionDetails?.preferredSkills || []}
+                      candidateSkills={resumeDetails.structuredData.skills || {}}
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Right Panel - Extracted Text */}
@@ -1064,6 +1336,33 @@ export default function SessionDetails() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Candidate Comparison Modal */}
+      {showComparison && (
+        <CandidateComparison 
+          candidates={selectedCandidates.map(candidate => ({
+            resumeId: candidate.resumeId,
+            candidateId: candidate.candidateId,
+            name: candidate.structuredData?.contact_info?.name,
+            scores: {
+              keywordScore: candidate.scores.keywordScore,
+              qualitativeScore: candidate.scores.qualitativeScore || 0,
+              totalScore: candidate.scores.totalScore
+            },
+            structuredData: {
+              contact_info: {
+                name: candidate.structuredData.contact_info.name,
+                email: candidate.structuredData.contact_info.email,
+                phone: candidate.structuredData.contact_info.phone
+              },
+              skills: candidate.structuredData.skills,
+              experience: candidate.structuredData.experience
+            }
+          }))}
+          requiredSkills={sessionDetails?.requiredSkills || []}
+          onClose={() => setShowComparison(false)}
+        />
       )}
     </div>
   );

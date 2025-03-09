@@ -7,9 +7,15 @@ import {
 } from "react";
 import { authApi } from "../services/api";
 
+interface User {
+  id?: string;
+  email: string;
+}
+
 interface AuthContextType {
   isAuthenticated: boolean;
   token: string | null;
+  user: User | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   register: (email: string, password: string) => Promise<void>;
@@ -34,14 +40,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
     localStorage.getItem("token")
   );
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(!!token);
+  const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
     if (token) {
       localStorage.setItem("token", token);
       setIsAuthenticated(true);
+      
+      // Extract user email from token (simplified approach)
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (payload.email) {
+          setUser({ email: payload.email });
+        }
+      } catch (error) {
+        console.error("Failed to parse token:", error);
+      }
     } else {
       localStorage.removeItem("token");
       setIsAuthenticated(false);
+      setUser(null);
     }
   }, [token]);
 
@@ -49,6 +67,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const response = await authApi.login(email, password);
     if (response.token) {
       setToken(response.token);
+      setUser({ email });
     }
   };
 
@@ -58,11 +77,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const logout = () => {
     setToken(null);
+    setUser(null);
   };
 
   return (
     <AuthContext.Provider
-      value={{ isAuthenticated, token, login, logout, register }}
+      value={{ isAuthenticated, token, user, login, logout, register }}
     >
       {children}
     </AuthContext.Provider>
