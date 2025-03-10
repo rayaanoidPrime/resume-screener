@@ -1,5 +1,14 @@
-import React from 'react';
-import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import React from "react";
+import {
+  Radar,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  ResponsiveContainer,
+  Tooltip,
+  Legend,
+} from "recharts";
 
 interface CandidateComparisonProps {
   candidates: {
@@ -22,6 +31,7 @@ interface CandidateComparisonProps {
         frameworks?: string[];
         databases?: string[];
         tools?: string[];
+        [key: string]: string[] | undefined;
       };
       experience: {
         company: string;
@@ -34,10 +44,10 @@ interface CandidateComparisonProps {
   onClose: () => void;
 }
 
-const CandidateComparison: React.FC<CandidateComparisonProps> = ({ 
-  candidates, 
+const CandidateComparison: React.FC<CandidateComparisonProps> = ({
+  candidates,
   requiredSkills,
-  onClose 
+  onClose,
 }) => {
   if (candidates.length === 0) {
     return null;
@@ -48,49 +58,58 @@ const CandidateComparison: React.FC<CandidateComparisonProps> = ({
 
   // Prepare data for radar chart
   const radarData = [
-    { 
-      metric: 'Keyword Match', 
+    {
+      metric: "Keyword Match",
       ...candidates.reduce((acc, candidate, index) => {
-        acc[`Candidate ${index + 1}`] = formatScore(candidate.scores.keywordScore);
+        acc[`Candidate ${index + 1}`] = formatScore(
+          candidate.scores.keywordScore
+        );
         return acc;
-      }, {} as Record<string, number>)
+      }, {} as Record<string, number>),
     },
-    { 
-      metric: 'Qualitative Score', 
+    {
+      metric: "Qualitative Score",
       ...candidates.reduce((acc, candidate, index) => {
-        acc[`Candidate ${index + 1}`] = formatScore(candidate.scores.qualitativeScore || 0);
+        acc[`Candidate ${index + 1}`] = formatScore(
+          candidate.scores.qualitativeScore || 0
+        );
         return acc;
-      }, {} as Record<string, number>)
+      }, {} as Record<string, number>),
     },
-    { 
-      metric: 'Overall Match', 
+    {
+      metric: "Overall Match",
       ...candidates.reduce((acc, candidate, index) => {
-        acc[`Candidate ${index + 1}`] = formatScore(candidate.scores.totalScore);
+        acc[`Candidate ${index + 1}`] = formatScore(
+          candidate.scores.totalScore
+        );
         return acc;
-      }, {} as Record<string, number>)
-    }
+      }, {} as Record<string, number>),
+    },
   ];
 
   // Generate colors for each candidate
-  const colors = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#a4de6c'];
+  const colors = ["#8884d8", "#82ca9d", "#ffc658", "#ff8042", "#a4de6c"];
 
   // Calculate skill match percentages
-  const getSkillMatchPercentage = (candidate: CandidateComparisonProps['candidates'][0]) => {
-    const candidateSkills = [
-      ...(candidate.structuredData.skills.programming_languages || []),
-      ...(candidate.structuredData.skills.frameworks || []),
-      ...(candidate.structuredData.skills.databases || []),
-      ...(candidate.structuredData.skills.tools || [])
-    ].map(skill => skill.toLowerCase());
-    
-    const matchedSkills = requiredSkills.filter(skill => 
-      candidateSkills.some(candidateSkill => 
-        candidateSkill.includes(skill.toLowerCase())
+  const getSkillMatchPercentage = (
+    candidate: CandidateComparisonProps["candidates"][0]
+  ) => {
+    // Get all skills from all categories
+    const candidateSkills = Object.values(candidate.structuredData.skills)
+      .filter((skills): skills is string[] => Array.isArray(skills))
+      .flat()
+      .map((skill) => skill.toLowerCase());
+
+    const matchedSkills = requiredSkills.filter((skill) =>
+      candidateSkills.some(
+        (candidateSkill) =>
+          candidateSkill.toLowerCase().includes(skill.toLowerCase()) ||
+          skill.toLowerCase().includes(candidateSkill.toLowerCase())
       )
     );
-    
-    return requiredSkills.length > 0 
-      ? Math.round((matchedSkills.length / requiredSkills.length) * 100) 
+
+    return requiredSkills.length > 0
+      ? Math.round((matchedSkills.length / requiredSkills.length) * 100)
       : 0;
   };
 
@@ -127,7 +146,9 @@ const CandidateComparison: React.FC<CandidateComparisonProps> = ({
         <div className="flex-1 overflow-auto py-4">
           {/* Radar Chart */}
           <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-            <h4 className="text-lg font-semibold text-gray-900 mb-4">Evaluation Metrics Comparison</h4>
+            <h4 className="text-lg font-semibold text-gray-900 mb-4">
+              Evaluation Metrics Comparison
+            </h4>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <RadarChart outerRadius="80%" data={radarData}>
@@ -136,11 +157,14 @@ const CandidateComparison: React.FC<CandidateComparisonProps> = ({
                   <PolarRadiusAxis angle={30} domain={[0, 100]} />
                   <Tooltip formatter={(value) => `${value}%`} />
                   <Legend />
-                  
+
                   {candidates.map((candidate, index) => (
                     <Radar
                       key={candidate.resumeId}
-                      name={candidate.structuredData.contact_info.name || `Candidate ${index + 1}`}
+                      name={
+                        candidate.structuredData.contact_info.name ||
+                        `Candidate ${index + 1}`
+                      }
                       dataKey={`Candidate ${index + 1}`}
                       stroke={colors[index % colors.length]}
                       fill={colors[index % colors.length]}
@@ -154,7 +178,9 @@ const CandidateComparison: React.FC<CandidateComparisonProps> = ({
 
           {/* Skills Comparison */}
           <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-            <h4 className="text-lg font-semibold text-gray-900 mb-4">Skills Match</h4>
+            <h4 className="text-lg font-semibold text-gray-900 mb-4">
+              Skills Match
+            </h4>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
@@ -172,36 +198,45 @@ const CandidateComparison: React.FC<CandidateComparisonProps> = ({
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {candidates.map((candidate, index) => {
-                    const candidateSkills = [
-                      ...(candidate.structuredData.skills.programming_languages || []),
-                      ...(candidate.structuredData.skills.frameworks || []),
-                      ...(candidate.structuredData.skills.databases || []),
-                      ...(candidate.structuredData.skills.tools || [])
-                    ].map(skill => skill.toLowerCase());
-                    
-                    const matchedSkills = requiredSkills.filter(skill => 
-                      candidateSkills.some(candidateSkill => 
+                    // Get all skills from all categories
+                    const candidateSkills = Object.values(
+                      candidate.structuredData.skills
+                    )
+                      .filter((skills): skills is string[] =>
+                        Array.isArray(skills)
+                      )
+                      .flat()
+                      .map((skill) => skill.toLowerCase());
+
+                    const matchedSkills = requiredSkills.filter((skill) =>
+                      candidateSkills.some((candidateSkill) =>
                         candidateSkill.includes(skill.toLowerCase())
                       )
                     );
-                    
-                    const missingSkills = requiredSkills.filter(skill => 
-                      !candidateSkills.some(candidateSkill => 
-                        candidateSkill.includes(skill.toLowerCase())
-                      )
+
+                    const missingSkills = requiredSkills.filter(
+                      (skill) =>
+                        !candidateSkills.some((candidateSkill) =>
+                          candidateSkill.includes(skill.toLowerCase())
+                        )
                     );
 
                     return (
                       <tr key={candidate.resumeId}>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {candidate.structuredData.contact_info.name || `Candidate ${index + 1}`}
+                          {candidate.structuredData.contact_info.name ||
+                            `Candidate ${index + 1}`}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="w-full bg-gray-200 rounded-full h-2.5">
-                              <div 
-                                className="bg-blue-600 h-2.5 rounded-full" 
-                                style={{ width: `${getSkillMatchPercentage(candidate)}%` }}
+                              <div
+                                className="bg-blue-600 h-2.5 rounded-full"
+                                style={{
+                                  width: `${getSkillMatchPercentage(
+                                    candidate
+                                  )}%`,
+                                }}
                               ></div>
                             </div>
                             <span className="ml-2 text-sm text-gray-700">
@@ -210,7 +245,7 @@ const CandidateComparison: React.FC<CandidateComparisonProps> = ({
                           </div>
                           <div className="mt-2 flex flex-wrap gap-1">
                             {matchedSkills.map((skill, i) => (
-                              <span 
+                              <span
                                 key={i}
                                 className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800"
                               >
@@ -222,7 +257,7 @@ const CandidateComparison: React.FC<CandidateComparisonProps> = ({
                         <td className="px-6 py-4">
                           <div className="flex flex-wrap gap-1">
                             {missingSkills.map((skill, i) => (
-                              <span 
+                              <span
                                 key={i}
                                 className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800"
                               >
@@ -241,65 +276,44 @@ const CandidateComparison: React.FC<CandidateComparisonProps> = ({
 
           {/* Experience Comparison */}
           <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <h4 className="text-lg font-semibold text-gray-900 mb-4">Experience Comparison</h4>
+            <h4 className="text-lg font-semibold text-gray-900 mb-4">
+              Experience Timeline
+            </h4>
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Candidate
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Latest Role
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Company
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Experience Timeline
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {candidates.map((candidate, index) => {
-                    const latestExperience = candidate.structuredData.experience[0] || null;
-                    
-                    return (
-                      <tr key={candidate.resumeId}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {candidate.structuredData.contact_info.name || `Candidate ${index + 1}`}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {latestExperience ? latestExperience.title : 'N/A'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {latestExperience ? latestExperience.company : 'N/A'}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-900">
-                          {candidate.structuredData.experience.length > 0 ? (
-                            <div className="space-y-2">
-                              {candidate.structuredData.experience.map((exp, i) => (
-                                <div key={i} className="flex items-center">
-                                  <div className="w-24 text-xs text-gray-500">{exp.dates}</div>
-                                  <div className="ml-2 flex-1 h-6 relative">
-                                    <div className="absolute inset-0 bg-blue-100 rounded">
-                                      <div className="px-2 py-1 text-xs">
-                                        {exp.title} at {exp.company}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
+              <div className="min-w-full">
+                {candidates.map((candidate, index) => (
+                  <div key={candidate.resumeId} className="mb-6 last:mb-0">
+                    <div className="flex items-start">
+                      <div className="w-48 shrink-0 pt-2">
+                        <span className="font-medium text-gray-900">
+                          {candidate.structuredData.contact_info.name ||
+                            `Candidate ${index + 1}`}
+                        </span>
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex gap-2">
+                          {candidate.structuredData.experience.map((exp, i) => (
+                            <div
+                              key={i}
+                              className="flex-shrink-0 w-64 bg-blue-50 rounded-lg p-3 border border-blue-100"
+                            >
+                              <div className="font-medium text-blue-900">
+                                {exp.title}
+                              </div>
+                              <div className="text-sm text-blue-700 mt-1">
+                                {exp.company}
+                              </div>
+                              <div className="text-xs text-blue-600 mt-1">
+                                {exp.dates}
+                              </div>
                             </div>
-                          ) : (
-                            <span className="text-gray-500">No experience data</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -308,4 +322,4 @@ const CandidateComparison: React.FC<CandidateComparisonProps> = ({
   );
 };
 
-export default CandidateComparison; 
+export default CandidateComparison;

@@ -918,15 +918,40 @@ export default function SessionDetails() {
                 Candidate Rankings
               </h2>
 
-              {/* Add Compare button when candidates are selected */}
-              {selectedCandidates.length > 1 && (
-                <button
-                  onClick={() => setShowComparison(true)}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-on-dark bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  Compare Selected ({selectedCandidates.length})
-                </button>
-              )}
+              {/* Enhanced comparison toolbar */}
+              <div className="flex items-center gap-4">
+                {selectedCandidates.length > 0 && (
+                  <div className="text-sm text-gray-600">
+                    {selectedCandidates.length} candidate
+                    {selectedCandidates.length !== 1 ? "s" : ""} selected
+                  </div>
+                )}
+                {selectedCandidates.length > 1 ? (
+                  <button
+                    onClick={() => setShowComparison(true)}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    <svg
+                      className="mr-2 h-5 w-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                      />
+                    </svg>
+                    Compare Selected ({selectedCandidates.length})
+                  </button>
+                ) : selectedCandidates.length === 1 ? (
+                  <div className="text-sm text-blue-600">
+                    Select at least one more candidate to compare
+                  </div>
+                ) : null}
+              </div>
             </div>
 
             {loading ? (
@@ -977,8 +1002,8 @@ export default function SessionDetails() {
                             selectedCandidates.some(
                               (c) => c.resumeId === candidate.resumeId
                             )
-                              ? "bg-blue-50"
-                              : ""
+                              ? "bg-blue-50 hover:bg-blue-100 transition-colors duration-150"
+                              : "hover:bg-gray-50 transition-colors duration-150"
                           }
                         >
                           <td className="px-3 py-4 whitespace-nowrap">
@@ -990,7 +1015,7 @@ export default function SessionDetails() {
                               onChange={() =>
                                 toggleCandidateSelection(candidate)
                               }
-                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
                             />
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
