@@ -1146,21 +1146,22 @@ export default function SessionDetails() {
                           </h5>
                         </div>
                         <div className="divide-y divide-gray-200">
-                          {resumeDetails.structuredData.experience.map(
+                          {(resumeDetails.structuredData.experience || []).map(
                             (exp, index) => (
                               <div key={index} className="p-4">
                                 <h6 className="font-medium text-gray-900 break-words">
-                                  {exp.title}
+                                  {exp?.title || "Unknown Position"}
                                 </h6>
                                 <p className="text-sm text-gray-700 mt-1 break-words">
-                                  {exp.company}
+                                  {exp?.company || "Unknown Company"}
                                 </p>
                                 <p className="text-sm text-gray-500 mt-1">
-                                  {exp.dates} • {exp.location}
+                                  {exp?.dates || "No dates"} •{" "}
+                                  {exp?.location || "No location"}
                                 </p>
-                                {exp.description.length > 0 && (
+                                {exp?.description?.length > 0 && (
                                   <ul className="mt-2 space-y-1">
-                                    {exp.description.map((desc, i) => (
+                                    {(exp?.description || []).map((desc, i) => (
                                       <li
                                         key={i}
                                         className="text-sm text-gray-600 pl-4 relative before:content-['•'] before:absolute before:left-0 before:text-gray-400 break-words"
@@ -1178,8 +1179,8 @@ export default function SessionDetails() {
                     )}
 
                     {/* Skills */}
-                    {Object.keys(resumeDetails.structuredData.skills).length >
-                      0 && (
+                    {Object.keys(resumeDetails.structuredData.skills || {})
+                      .length > 0 && (
                       <div className="bg-white rounded-lg border border-gray-200">
                         <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
                           <h5 className="font-semibold text-gray-900">
@@ -1188,7 +1189,7 @@ export default function SessionDetails() {
                         </div>
                         <div className="p-4">
                           {Object.entries(
-                            resumeDetails.structuredData.skills
+                            resumeDetails.structuredData.skills || {}
                           ).map(([category, skills]) =>
                             skills && skills.length > 0 ? (
                               <div key={category} className="mb-4 last:mb-0">
@@ -1196,7 +1197,7 @@ export default function SessionDetails() {
                                   {category.replace("_", " ")}
                                 </h6>
                                 <div className="flex flex-wrap gap-1.5">
-                                  {skills.map((skill, index) => (
+                                  {(skills || []).map((skill, index) => (
                                     <span
                                       key={index}
                                       className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700"
@@ -1221,19 +1222,20 @@ export default function SessionDetails() {
                           </h5>
                         </div>
                         <div className="divide-y divide-gray-200">
-                          {resumeDetails.structuredData.education.map(
+                          {(resumeDetails.structuredData.education || []).map(
                             (edu, index) => (
                               <div key={index} className="p-4">
                                 <h6 className="font-medium text-gray-900 break-words">
-                                  {edu.degree} in {edu.field}
+                                  {edu?.degree || "Degree"} in{" "}
+                                  {edu?.field || "Unknown Field"}
                                 </h6>
                                 <p className="text-sm text-gray-700 mt-1 break-words">
-                                  {edu.institution}
+                                  {edu?.institution || "Unknown Institution"}
                                 </p>
                                 <p className="text-sm text-gray-500 mt-1">
-                                  {edu.dates}
+                                  {edu?.dates || "No dates"}
                                 </p>
-                                {edu.gpa && (
+                                {edu?.gpa && (
                                   <p className="text-sm text-gray-600 mt-1">
                                     GPA: {edu.gpa}
                                   </p>
@@ -1246,7 +1248,7 @@ export default function SessionDetails() {
                     )}
 
                     {/* Projects */}
-                    {resumeDetails.structuredData.projects.length > 0 && (
+                    {resumeDetails.structuredData?.projects?.length > 0 && (
                       <div className="bg-white rounded-lg border border-gray-200">
                         <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
                           <h5 className="font-semibold text-gray-900">
@@ -1254,14 +1256,14 @@ export default function SessionDetails() {
                           </h5>
                         </div>
                         <div className="divide-y divide-gray-200">
-                          {resumeDetails.structuredData.projects.map(
+                          {(resumeDetails.structuredData?.projects || []).map(
                             (project, index) => (
                               <div key={index} className="p-4">
                                 <div className="flex items-center justify-between flex-wrap gap-2">
                                   <h6 className="font-medium text-gray-900 break-words">
-                                    {project.name}
+                                    {project?.name || "Untitled Project"}
                                   </h6>
-                                  {project.link && (
+                                  {project?.link && (
                                     <a
                                       href={project.link}
                                       target="_blank"
@@ -1273,18 +1275,21 @@ export default function SessionDetails() {
                                   )}
                                 </div>
                                 <p className="text-sm text-gray-600 mt-2 break-words">
-                                  {project.description}
+                                  {project?.description ||
+                                    "No description available"}
                                 </p>
-                                {project.technologies.length > 0 && (
+                                {project?.technologies?.length > 0 && (
                                   <div className="flex flex-wrap gap-1.5 mt-2">
-                                    {project.technologies.map((tech, i) => (
-                                      <span
-                                        key={i}
-                                        className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-700"
-                                      >
-                                        {tech}
-                                      </span>
-                                    ))}
+                                    {(project?.technologies || []).map(
+                                      (tech, i) => (
+                                        <span
+                                          key={i}
+                                          className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-700"
+                                        >
+                                          {tech}
+                                        </span>
+                                      )
+                                    )}
                                   </div>
                                 )}
                               </div>
@@ -1434,20 +1439,22 @@ export default function SessionDetails() {
           candidates={selectedCandidates.map((candidate) => ({
             resumeId: candidate.resumeId,
             candidateId: candidate.candidateId,
-            name: candidate.structuredData?.contact_info?.name,
+            name:
+              candidate.structuredData?.contact_info?.name ||
+              "Unknown Candidate",
             scores: {
-              keywordScore: candidate.scores.keywordScore,
-              qualitativeScore: candidate.scores.qualitativeScore || 0,
-              totalScore: candidate.scores.totalScore,
+              keywordScore: candidate.scores?.keywordScore || 0,
+              qualitativeScore: candidate.scores?.qualitativeScore || 0,
+              totalScore: candidate.scores?.totalScore || 0,
             },
             structuredData: {
               contact_info: {
-                name: candidate.structuredData.contact_info.name,
-                email: candidate.structuredData.contact_info.email,
-                phone: candidate.structuredData.contact_info.phone,
+                name: candidate.structuredData?.contact_info?.name || null,
+                email: candidate.structuredData?.contact_info?.email || null,
+                phone: candidate.structuredData?.contact_info?.phone || null,
               },
-              skills: candidate.structuredData.skills,
-              experience: candidate.structuredData.experience,
+              skills: candidate.structuredData?.skills || {},
+              experience: candidate.structuredData?.experience || [],
             },
           }))}
           requiredSkills={sessionDetails?.requiredSkills || []}
