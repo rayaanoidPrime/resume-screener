@@ -203,6 +203,17 @@ export default function SessionDetails() {
       try {
         const data = await sessionApi.getSession(sessionId, token);
         setSessionDetails(data);
+
+        // Fetch rankings after getting session details
+        try {
+          const rankingsData = await sessionApi.getRankings(sessionId, token);
+          if (rankingsData && Array.isArray(rankingsData)) {
+            setRankings(rankingsData);
+          }
+        } catch (rankingsErr) {
+          console.error("Failed to fetch rankings:", rankingsErr);
+          // Don't set error here as we still have session details
+        }
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Failed to fetch session details"
@@ -238,7 +249,7 @@ export default function SessionDetails() {
       if (data && Array.isArray(data)) {
         setRankings(data);
 
-        // Show success message
+        // Show success message only when manually fetching rankings after upload
         const successMessage = document.createElement("div");
         successMessage.className =
           "fixed bottom-4 right-4 bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded shadow-md animate-fadeIn";
@@ -256,7 +267,6 @@ export default function SessionDetails() {
         `;
         document.body.appendChild(successMessage);
 
-        // Remove the message after 5 seconds
         setTimeout(() => {
           if (document.body.contains(successMessage)) {
             document.body.removeChild(successMessage);
