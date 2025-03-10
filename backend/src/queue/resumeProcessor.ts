@@ -79,11 +79,23 @@ const resumeQueue = new Queue(
 );
 
 // Define job data interface
-interface ResumeJobData {
+export interface ResumeJobData {
   filePath: string;
   sessionId: string;
   mimeType: string;
   resumeId: string;
+  job: {
+    title: string;
+    description: string;
+    location: string;
+    employmentType: string;
+    experienceLevel: string;
+    requiredSkills: string[];
+    preferredSkills: string[];
+    responsibilities: string[];
+    educationRequired: string[];
+    educationPreferred: string[];
+  };
 }
 
 async function extractPdfText(filePath: string): Promise<string> {
@@ -126,9 +138,12 @@ async function extractDocxText(filePath: string): Promise<string> {
 }
 
 // Parse resume text using configured AI provider
-async function parseResume(extractedText: string): Promise<ResumeData> {
+async function parseResume(
+  extractedText: string,
+  jobData: ResumeJobData["job"]
+): Promise<ResumeData> {
   try {
-    const prompt = parseResumePrompt(extractedText);
+    const prompt = parseResumePrompt(extractedText, jobData);
     const response = await aiProvider.completion(
       prompt,
       "You are an expert resume parser that outputs only valid JSON."
@@ -155,7 +170,12 @@ async function parseResume(extractedText: string): Promise<ResumeData> {
 
 // Process jobs
 resumeQueue.process(async (job) => {
-  const { filePath, sessionId, mimeType } = job.data as ResumeJobData;
+  const {
+    filePath,
+    sessionId,
+    mimeType,
+    job: jobData,
+  } = job.data as ResumeJobData;
 
   try {
     // Update progress to 25%
@@ -187,7 +207,7 @@ resumeQueue.process(async (job) => {
     // Parse resume with GPT
     let structuredData: ResumeData | null = null;
     try {
-      structuredData = await parseResume(extractedText);
+      structuredData = await parseResume(extractedText, jobData);
       await job.progress(60);
 
       if (!structuredData) {
@@ -198,23 +218,13 @@ resumeQueue.process(async (job) => {
       // Continue with the process even if GPT parsing fails
     }
 
-    // Get session's job description for evaluation
-    const session = await prisma.session.findUnique({
-      where: { id: sessionId },
-      select: { jobDescription: true },
-    });
-
-    if (!session?.jobDescription) {
-      throw new Error("Session or job description not found");
-    }
-
     if (!structuredData) {
       throw new Error("Structured data not found");
     }
 
     // Evaluate resume
     const { keywordScore, qualitativeScore, totalScore } = await evaluateResume(
-      session.jobDescription,
+      jobData,
       extractedText,
       structuredData
     );
@@ -222,33 +232,25 @@ resumeQueue.process(async (job) => {
     // Update progress to 80%
     await job.progress(80);
 
-    // Create candidate and resume records
-    const candidate = await prisma.candidate.create({
-      data: {
-        sessionId,
-        resumes: {
-          create: {
-            filePath,
-            extractedText,
-            structuredData: structuredData as any, // Type cast to fix Prisma JSON compatibility
-            status:
-              extractedText.length > 0 && structuredData
-                ? "processed"
-                : "needs_review",
-          },
-        },
+    // Update the existing resume instead of creating a new one
+    const updatedResume = await prisma.resume.update({
+      where: {
+        id: job.data.resumeId,
       },
-      include: {
-        resumes: {
-          take: 1,
-        },
+      data: {
+        extractedText,
+        structuredData: structuredData as any,
+        status:
+          extractedText.length > 0 && structuredData
+            ? "processed"
+            : "needs_review",
       },
     });
 
     // Create evaluation record
     const evaluation = await prisma.evaluation.create({
       data: {
-        resumeId: candidate.resumes[0].id,
+        resumeId: updatedResume.id,
         keywordScore,
         qualitativeScore,
         totalScore,
@@ -259,8 +261,7 @@ resumeQueue.process(async (job) => {
     await job.progress(100);
 
     return {
-      candidateId: candidate.id,
-      resumeId: candidate.resumes[0].id,
+      resumeId: updatedResume.id,
       status:
         extractedText.length > 0 && structuredData
           ? "processed"

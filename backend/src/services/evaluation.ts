@@ -1,6 +1,6 @@
 import { createAIProvider } from "../ai/providers";
 import { aiConfig } from "../ai/config";
-import { ResumeData } from "../queue/resumeProcessor";
+import { ResumeData, ResumeJobData } from "../queue/resumeProcessor";
 import { getQualitativeScorePrompt } from "../ai/prompts";
 
 const aiProvider = createAIProvider(aiConfig);
@@ -127,11 +127,11 @@ const commonWords = new Set([
 ]);
 
 function calculateKeywordScore(
-  jobDescription: string,
+  jobData: ResumeJobData["job"],
   resumeText: string
 ): number {
   // Convert texts to lowercase for comparison
-  const jobText = jobDescription.toLowerCase();
+  const jobText = JSON.stringify(jobData).toLowerCase();
   const resumeText_ = resumeText.toLowerCase();
 
   // Extract meaningful keywords from job description
@@ -156,11 +156,11 @@ function calculateKeywordScore(
 }
 
 async function getQualitativeScore(
-  jobDescription: string,
+  jobData: ResumeJobData["job"],
   structuredData: ResumeData
 ): Promise<number> {
   try {
-    const prompt = getQualitativeScorePrompt(jobDescription, structuredData);
+    const prompt = getQualitativeScorePrompt(jobData, structuredData);
 
     const result = await aiProvider.completion(
       prompt,
@@ -175,7 +175,7 @@ async function getQualitativeScore(
 }
 
 export async function evaluateResume(
-  jobDescription: string,
+  jobData: ResumeJobData["job"],
   resumeText: string,
   structuredData: ResumeData
 ): Promise<{
@@ -184,13 +184,10 @@ export async function evaluateResume(
   qualitativeScore: number;
 }> {
   // Calculate keyword match score
-  const keywordScore = calculateKeywordScore(jobDescription, resumeText);
+  const keywordScore = calculateKeywordScore(jobData, resumeText);
 
   // Get qualitative score from AI
-  const qualitativeScore = await getQualitativeScore(
-    jobDescription,
-    structuredData
-  );
+  const qualitativeScore = await getQualitativeScore(jobData, structuredData);
 
   // Combine scores (giving more weight to qualitative assessment)
   const totalScore = keywordScore * 0.4 + qualitativeScore * 0.6;

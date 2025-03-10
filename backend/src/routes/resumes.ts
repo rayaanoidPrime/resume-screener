@@ -74,6 +74,16 @@ router.post(
           },
         });
 
+        const session = await prisma.session.findUnique({
+          where: {
+            id: sessionId,
+          },
+        });
+
+        if (!session) {
+          throw new Error("Session not found");
+        }
+
         // Create a resume record
         const resume = await prisma.resume.create({
           data: {
@@ -84,6 +94,18 @@ router.post(
         });
 
         const job = await resumeQueue.add({
+          job: {
+            title: session.jobTitle,
+            description: session.jobDescription,
+            location: session.location,
+            employmentType: session.employmentType,
+            experienceLevel: session.experienceLevel,
+            requiredSkills: session.requiredSkills,
+            preferredSkills: session.preferredSkills,
+            responsibilities: session.responsibilities,
+            educationRequired: session.educationRequired,
+            educationPreferred: session.educationPreferred,
+          },
           filePath: absolutePath,
           sessionId,
           mimeType: file.mimetype,

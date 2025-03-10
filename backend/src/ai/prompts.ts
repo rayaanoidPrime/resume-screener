@@ -1,11 +1,17 @@
 import { ResumeData } from "../queue/resumeProcessor";
+import { ResumeJobData } from "../queue/resumeProcessor";
 
-export function parseResumePrompt(extractedText: string): string {
+export function parseResumePrompt(
+  extractedText: string,
+  jobData: ResumeJobData["job"]
+): string {
   return `You are an expert system that converts unstructured resume text data from into structured JSON format. Follow these precise instructions:
 
 Input:
-1. extracted text from a resume
+1. extracted text from a resume and the job posting data in JSON format.
 2. You must organize this into a well-structured JSON object
+3. If the candidate has not explicitly listed the skills mentioned in the job data, you must infer them from the resume.
+
 
 Output Requirements:
 Create a JSON object with these main sections:
@@ -37,6 +43,8 @@ Processing Guidelines:
 5. Use null values for missing information rather than omitting fields
 6. For fields with multiple items (like bullet points), preserve as arrays
 7. Handle inconsistent formatting gracefully
+8. If the candidate has not explicitly listed the skills mentioned in the job data, you must infer them from the resume.
+9. Only include those inferred skills which you are confident that the candidate has, after comparing the resume to the job data.
 
 Here is an example of the JSON format you should return:
 {
@@ -130,6 +138,10 @@ Here is an example of the JSON format you should return:
   }
 }
 
+Here is the job data:
+<JOB_DATA>
+${JSON.stringify(jobData)}  
+</JOB_DATA>
 
 Here is the extracted text from the resume:
 <BEGIN_TEXT>
@@ -140,16 +152,20 @@ Format your response as valid, properly indented JSON only, without any explanat
 }
 
 export function getQualitativeScorePrompt(
-  jobDescription: string,
+  jobData: ResumeJobData["job"],
   structuredData: ResumeData
 ): string {
-  return `You are an expert resume evaluator. Analyze how well the candidate's qualifications match the job requirements.
+  return `You are an expert resume evaluator. Analyze how well the candidate's qualifications match the job requirements. Both the job details and the resume data are in JSON format.
 
-  Job Description:
-  ${jobDescription}
+  Job Details in JSON format:
+  <JOB_DETAILS>
+  ${JSON.stringify(jobData)}
+  </JOB_DETAILS>
   
-  Resume Text in JSON format:
+  Resume Data in JSON format:
+  <RESUME_DATA>
   ${JSON.stringify(structuredData)}
+  </RESUME_DATA>
   
   Based on the candidate's experience, skills, education, and overall fit for the role, provide a single number between 0 and 1 representing their match score. Consider factors like:
   - Relevant experience
