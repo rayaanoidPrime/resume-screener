@@ -25,19 +25,58 @@ interface CandidateComparisonProps {
         name: string | null;
         email: string | null;
         phone: string | null;
+        location: string | null;
+        linkedin: string | null;
       };
       skills: {
-        programming_languages?: string[];
-        frameworks?: string[];
-        databases?: string[];
-        tools?: string[];
+        financial_modeling?: string[];
+        valuation_methods?: string[];
+        research_tools?: string[];
+        technical_skills?: string[];
+        soft_skills?: string[];
         [key: string]: string[] | undefined;
       };
       experience: {
         company: string;
         title: string;
         dates: string;
+        location: string;
+        description: string[];
+        deal_experience?: {
+          name: string;
+          size: string;
+          type: string;
+          role: string;
+        }[];
+        sectors?: string[];
+        investment_types?: string[];
       }[];
+      education: {
+        institution: string;
+        degree: string;
+        field: string;
+        dates: string;
+        gpa?: string;
+        relevant_coursework?: string[];
+      }[];
+      certifications?: {
+        name: string;
+        issuer: string;
+        date: string;
+        level?: string;
+      }[];
+      research_experience?: {
+        title: string;
+        description: string;
+        sectors: string[];
+        methodologies: string[];
+      }[];
+      additional?: {
+        deal_value?: string;
+        sector_expertise?: string[];
+        publications?: string[];
+        conferences?: string[];
+      };
     };
   }[];
   requiredSkills: string[];

@@ -5,13 +5,12 @@ export function parseResumePrompt(
   extractedText: string,
   jobData: ResumeJobData["job"]
 ): string {
-  return `You are an expert system that converts unstructured resume text data from into structured JSON format. Follow these precise instructions:
+  return `You are an expert system that converts unstructured resume text data into structured JSON format, specifically for investment and private equity research roles. Follow these precise instructions:
 
 Input:
 1. extracted text from a resume and the job posting data in JSON format.
 2. You must organize this into a well-structured JSON object
-3. If the candidate has not explicitly listed the skills mentioned in the job data, you must infer them from the resume.
-
+3. If the candidate has not explicitly listed the skills mentioned in the job data, you must infer them from their experience and background.
 
 Output Requirements:
 Create a JSON object with these main sections:
@@ -23,17 +22,35 @@ Create a JSON object with these main sections:
   * "dates": Employment period (start-end)
   * "location": Work location
   * "description": Array of bullet points/responsibilities
+  * "deal_experience": Array of deals worked on with size and type
+  * "sectors": Array of industry sectors covered
+  * "investment_types": Array of investment types (e.g., LBO, Growth Equity, etc.)
 - "education": Array of educational entries with:
   * "institution": School/university name
   * "degree": Degree type
   * "field": Field of study
   * "dates": Start-end years
   * "gpa": GPA if available
-- "skills": Array of skills, grouped by category when possible
-- "certifications": Array of professional certifications
-- "projects": Array of relevant projects
+  * "relevant_coursework": Array of relevant courses
+- "skills": Object containing categorized skills:
+  * "financial_modeling": Array of modeling skills
+  * "valuation_methods": Array of valuation methodologies
+  * "research_tools": Array of research and data tools
+  * "technical_skills": Array of technical/software skills
+  * "soft_skills": Array of relevant soft skills
+  * [Additional categories as needed]
+- "certifications": Array of professional certifications (e.g., CFA, CAIA)
+- "research_experience": Array of research projects/coverage with:
+  * "title": Research project/coverage name
+  * "description": Project details
+  * "sectors": Industries covered
+  * "methodologies": Research methodologies used
 - "languages": Language proficiencies
-- "additional": Any other relevant information
+- "additional": Object containing:
+  * "deal_value": Total deal value worked on
+  * "sector_expertise": Primary sector specializations
+  * "publications": Array of published research/analysis
+  * "conferences": Array of relevant conferences/speaking engagements
 
 Processing Guidelines:
 1. Maintain hierarchical structure even with imperfect text
@@ -43,72 +60,110 @@ Processing Guidelines:
 5. Use null values for missing information rather than omitting fields
 6. For fields with multiple items (like bullet points), preserve as arrays
 7. Handle inconsistent formatting gracefully
-8. If the candidate has not explicitly listed the skills mentioned in the job data, you must infer them from the resume.
-9. Only include those inferred skills which you are confident that the candidate has, after comparing the resume to the job data.
+8. Infer investment-related skills from experience descriptions
+9. Pay special attention to deal experience and sector expertise
+10. Include CFA and CAIA certifications in the certifications section (MUST)
 
 Here is an example of the JSON format you should return:
 {
   "contact_info": {
-    "name": "John Doe",
-    "email": "johndoe@example.com",
+    "name": "Jane Smith",
+    "email": "jane.smith@example.com",
     "phone": "+1 (123) 456-7890",
-    "location": "San Francisco, CA",
-    "linkedin": "https://www.linkedin.com/in/johndoe",
-    "portfolio": "https://johndoe.dev"
+    "location": "New York, NY",
+    "linkedin": "https://www.linkedin.com/in/janesmith"
   },
-  "summary": "Experienced software engineer with a strong background in full-stack web development, specializing in Python and JavaScript. Passionate about building scalable applications and improving development workflows.",
+  "summary": "Private Equity professional with 7 years of experience in middle-market investments, specializing in healthcare and technology sectors. Strong track record in deal execution and portfolio management.",
   "experience": [
     {
-      "company": "TechCorp Inc.",
-      "title": "Senior Software Engineer",
+      "company": "Growth Capital Partners",
+      "title": "Vice President",
       "dates": "Jan 2020 - Present",
-      "location": "San Francisco, CA",
-      "description": [
-        "Led the development of a microservices-based architecture, improving scalability and performance.",
-        "Mentored junior engineers and conducted code reviews.",
-        "Implemented CI/CD pipelines, reducing deployment time by 40%."
-      ]
-    },
-    {
-      "company": "StartupX",
-      "title": "Software Engineer",
-      "dates": "Jun 2017 - Dec 2019",
       "location": "New York, NY",
       "description": [
-        "Developed RESTful APIs and front-end applications using React and Node.js.",
-        "Optimized database queries, reducing load times by 30%.",
-        "Collaborated with product managers to define feature requirements."
-      ]
+        "Led due diligence and execution of 6 platform investments totaling $800M in enterprise value",
+        "Developed complex financial models and valuation analyses for target companies",
+        "Managed relationships with portfolio company executives and investment bankers"
+      ],
+      "deal_experience": [
+        {
+          "name": "HealthTech Solutions Acquisition",
+          "size": "$300M",
+          "type": "Platform Investment",
+          "role": "Lead Associate"
+        },
+        {
+          "name": "SaaS Provider Add-on",
+          "size": "$150M",
+          "type": "Add-on Acquisition",
+          "role": "Deal Lead"
+        }
+      ],
+      "sectors": ["Healthcare", "Technology", "SaaS"],
+      "investment_types": ["Growth Equity", "LBO", "Add-on Acquisitions"]
     }
   ],
   "education": [
     {
-      "institution": "University of California, Berkeley",
-      "degree": "Bachelor of Science",
-      "field": "Computer Science",
-      "dates": "2013 - 2017",
-      "gpa": "3.8"
+      "institution": "Harvard Business School",
+      "degree": "Master of Business Administration",
+      "field": "Finance",
+      "dates": "2017 - 2019",
+      "gpa": "3.8",
+      "relevant_coursework": [
+        "Private Equity",
+        "Venture Capital",
+        "Corporate Finance",
+        "Financial Modeling"
+      ]
     }
   ],
   "skills": {
-    "programming_languages": ["Python", "JavaScript", "TypeScript", "Java"],
-    "frameworks": ["React", "Node.js", "Django", "Flask"],
-    "databases": ["PostgreSQL", "MongoDB"],
-    "tools": ["Docker", "Kubernetes", "Git", "CI/CD"]
+    "financial_modeling": [
+      "LBO Modeling",
+      "DCF Analysis",
+      "Working Capital Analysis",
+      "Sensitivity Analysis"
+    ],
+    "valuation_methods": [
+      "Comparable Company Analysis",
+      "Precedent Transactions",
+      "LBO Analysis",
+      "DCF Valuation"
+    ],
+    "research_tools": [
+      "Capital IQ",
+      "FactSet",
+      "Bloomberg Terminal",
+      "PitchBook"
+    ],
+    "technical_skills": [
+      "Excel",
+      "PowerPoint",
+      "SQL",
+      "Tableau"
+    ],
+    "soft_skills": [
+      "Due Diligence",
+      "Negotiation",
+      "Team Leadership",
+      "Client Relations"
+    ]
   },
   "certifications": [
     {
-      "name": "AWS Certified Solutions Architect",
-      "issuer": "Amazon Web Services",
-      "date": "2021"
+      "name": "Chartered Financial Analyst (CFA)",
+      "issuer": "CFA Institute",
+      "date": "2021",
+      "level": "Level III"
     }
   ],
-  "projects": [
+  "research_experience": [
     {
-      "name": "AI Resume Screener",
-      "description": "Built an AI-powered resume screening tool for recruiters to evaluate candidates based on job descriptions.",
-      "technologies": ["Python", "FastAPI", "PostgreSQL", "React"],
-      "link": "https://github.com/johndoe/ai-resume-screener"
+      "title": "Healthcare SaaS Market Analysis",
+      "description": "Comprehensive analysis of the healthcare SaaS market, including market sizing, competitive landscape, and growth opportunities",
+      "sectors": ["Healthcare", "Technology"],
+      "methodologies": ["Market Sizing", "Competitive Analysis", "Growth Strategy"]
     }
   ],
   "languages": [
@@ -117,13 +172,21 @@ Here is an example of the JSON format you should return:
       "proficiency": "Native"
     },
     {
-      "language": "Spanish",
-      "proficiency": "Fluent"
+      "language": "Mandarin",
+      "proficiency": "Professional"
     }
   ],
   "additional": {
-    "volunteer_work": "Mentor at Code for Good, helping underprivileged students learn programming.",
-    "publications": ["'Optimizing Web Applications' - Published in Tech Journal, 2022"]
+    "deal_value": "$1.2B total transaction value",
+    "sector_expertise": ["Healthcare", "Technology", "Business Services"],
+    "publications": [
+      "Healthcare SaaS Market Report 2022",
+      "Digital Health Investment Landscape Analysis"
+    ],
+    "conferences": [
+      "Speaker at PE Healthcare Investment Summit 2022",
+      "Panelist at Growth Equity Conference 2021"
+    ]
   },
   "confidence": {
     "contact_info": "high",
@@ -131,10 +194,10 @@ Here is an example of the JSON format you should return:
     "experience": "high",
     "education": "high",
     "skills": "high",
-    "certifications": "medium",
-    "projects": "medium",
+    "certifications": "high",
+    "research_experience": "medium",
     "languages": "high",
-    "additional": "low"
+    "additional": "medium"
   }
 }
 
@@ -155,7 +218,7 @@ export function getQualitativeScorePrompt(
   jobData: ResumeJobData["job"],
   structuredData: ResumeData
 ): string {
-  return `You are an expert resume evaluator. Analyze how well the candidate's qualifications match the job requirements. Both the job details and the resume data are in JSON format.
+  return `You are an expert investment and private equity resume evaluator. Analyze how well the candidate's qualifications match the job requirements. Both the job details and the resume data are in JSON format.
 
   Job Details in JSON format:
   <JOB_DETAILS>
@@ -168,11 +231,16 @@ export function getQualitativeScorePrompt(
   </RESUME_DATA>
   
   Based on the candidate's experience, skills, education, and overall fit for the role, provide a single number between 0 and 1 representing their match score. Consider factors like:
-  - Relevant experience
-  - Required and preferred skills
-  - Education requirements
-  - Industry knowledge
-  - Project relevance
+  - Deal experience (size, complexity, and relevance)
+  - Sector expertise alignment
+  - Financial modeling and valuation skills
+  - Required certifications (CFA, CAIA, etc.)
+  - Educational background
+  - Research and analysis capabilities
+  - Industry knowledge and network
+  - Investment thesis development experience
+  - Due diligence expertise
+  - Portfolio management experience
   
   Return only a number between 0 and 1, with no explanation or other text.`;
 }
