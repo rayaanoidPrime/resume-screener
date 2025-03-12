@@ -118,7 +118,7 @@ export default function BucketComponent({
                     bucket.name === "Excellent"
                       ? "bg-green-200"
                       : bucket.name === "Good"
-                      ? "bg-green-100"
+                      ? "bg-blue-100"
                       : bucket.name === "No Go"
                       ? "bg-red-100"
                       : "bg-gray-50"

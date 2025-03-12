@@ -335,7 +335,7 @@ export default function JobDetailsForm() {
             }))
           }
           className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          placeholder="Describe the role, its impact, and key objectives..."
+          placeholder="Describe the role, its impact, and key objectives related to investment analysis, private equity, and real estate research..."
         />
       </div>
 
@@ -354,7 +354,7 @@ export default function JobDetailsForm() {
           value={formData.requiredSkills.join(", ")}
           onChange={(e) => handleSkillsChange("requiredSkills", e.target.value)}
           className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          placeholder="Python, JavaScript, React, etc."
+          placeholder="Financial modeling, market analysis, investment strategies, etc."
         />
       </div>
 
@@ -374,7 +374,7 @@ export default function JobDetailsForm() {
             handleSkillsChange("preferredSkills", e.target.value)
           }
           className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          placeholder="TypeScript, AWS, Docker, etc."
+          placeholder="Portfolio management, due diligence, market research, etc."
         />
       </div>
 
@@ -393,7 +393,7 @@ export default function JobDetailsForm() {
           value={formData.responsibilities.join("\n")}
           onChange={(e) => handleResponsibilitiesChange(e.target.value)}
           className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          placeholder="Design and implement new features&#10;Write clean, maintainable code&#10;Collaborate with cross-functional teams"
+          placeholder="Portfolio management, due diligence, market research, etc."
         />
       </div>
 
