@@ -10,6 +10,7 @@ interface BucketComponentProps {
   onResetBuckets: () => void;
   formatScore: (score: number) => string;
   onViewResume: (resumeId: string) => void;
+  onAddBucket: () => void;
 }
 
 export default function BucketComponent({
@@ -20,6 +21,7 @@ export default function BucketComponent({
   onResetBuckets,
   formatScore,
   onViewResume,
+  onAddBucket,
 }: BucketComponentProps) {
   const [sortOrders, setSortOrders] = useState<Record<string, "asc" | "desc">>(
     {}
@@ -60,6 +62,12 @@ export default function BucketComponent({
             className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
           >
             Reset All
+          </button>
+          <button
+            onClick={onAddBucket}
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            Add Bucket
           </button>
         </div>
       </div>

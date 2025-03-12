@@ -391,10 +391,12 @@ export const sessionApi = {
     sessionId: string,
     bucketId: string,
     token: string
-  ): Promise<void> => {
-    await api.delete(`/sessions/${sessionId}/buckets/${bucketId}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+  ): Promise<{ message: string; candidates: Candidate[] }> => {
+    const response = await api.delete(
+      `/sessions/${sessionId}/buckets/${bucketId}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    return response.data;
   },
 
   resetBuckets: async (

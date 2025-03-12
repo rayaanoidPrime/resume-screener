@@ -442,30 +442,17 @@ export default function SessionDetails() {
     if (!sessionId || !token) return;
     if (
       window.confirm(
-        `Are you sure you want to delete the "${bucket.name}" bucket? All candidates will be moved to the default bucket.`
+        `Are you sure you want to delete the "${bucket.name}" bucket? All candidates will be moved to their original buckets.`
       )
     ) {
       try {
-        await sessionApi.deleteBucket(sessionId, bucket.id, token);
+        const response = await sessionApi.deleteBucket(
+          sessionId,
+          bucket.id,
+          token
+        );
         setBuckets((prev) => prev.filter((b) => b.id !== bucket.id));
-
-        // Find default bucket
-        const defaultBucket = buckets.find(
-          (b) => b.isDefault && b.name === "Good"
-        );
-        if (!defaultBucket) {
-          setError("Default bucket not found");
-          return;
-        }
-
-        // Update candidates state
-        setCandidates((prev) =>
-          prev.map((candidate) =>
-            candidate.bucketId === bucket.id
-              ? { ...candidate, bucketId: defaultBucket.id }
-              : candidate
-          )
-        );
+        setCandidates(response.candidates);
       } catch (err) {
         setError("Failed to delete bucket");
       }
@@ -846,19 +833,7 @@ export default function SessionDetails() {
           </div>
 
           {/* Rankings Section with CandidateMetrics */}
-          <div className="bg-white shadow rounded-lg p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold text-gray-900">
-                Candidate Buckets
-              </h2>
-              <button
-                onClick={() => setIsAddingBucket(true)}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                Add Bucket
-              </button>
-            </div>
-
+          <div className="bg-white shadow rounded-lg">
             {/* Add Bucket Dialog */}
             {isAddingBucket && (
               <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center">
@@ -906,6 +881,7 @@ export default function SessionDetails() {
               onResetBuckets={handleResetBuckets}
               formatScore={formatScore}
               onViewResume={handleViewResume}
+              onAddBucket={() => setIsAddingBucket(true)}
             />
           </div>
         </div>

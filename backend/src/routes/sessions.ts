@@ -406,28 +406,30 @@ router.delete(
         return;
       }
 
-      // Find default bucket (we'll use "Good" as the fallback)
-      const defaultBucket = await prisma.bucket.findFirst({
-        where: { sessionId, isDefault: true, name: "Good" },
-      });
-
-      if (!defaultBucket) {
-        res.status(500).json({ error: "Default bucket not found" });
-        return;
-      }
-
-      // Move all candidates from the bucket being deleted to the default bucket
-      await prisma.candidate.updateMany({
-        where: { bucketId },
-        data: { bucketId: defaultBucket.id },
-      });
+      // Move all candidates from the bucket being deleted to their original buckets
+      await prisma.$executeRaw`
+        UPDATE "Candidate"
+        SET "bucketId" = "originalBucketId"
+        WHERE "bucketId" = ${bucketId}
+      `;
 
       // Delete the bucket
       await prisma.bucket.delete({
         where: { id: bucketId },
       });
 
-      res.status(200).json({ message: "Bucket deleted successfully" });
+      // Return updated candidates
+      const candidates = await prisma.candidate.findMany({
+        where: { sessionId },
+        include: {
+          resumes: { include: { evaluation: true } },
+          bucket: true,
+        },
+      });
+
+      res
+        .status(200)
+        .json({ message: "Bucket deleted successfully", candidates });
     } catch (error) {
       console.error("Bucket deletion error:", error);
       res.status(500).json({ error: "Internal server error" });
