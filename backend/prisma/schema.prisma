@@ -25,7 +25,8 @@ model Session {
   department         String
   location           String
   employmentType     String // Full-time, Part-time, Contract, etc.
-  experienceLevel    String // Junior, Mid, Senior
+  minExperience      Int
+  maxExperience      Int
   jobDescription     String // Main job description
   requiredSkills     String[] // Array of required skills
   preferredSkills    String[] // Array of preferred skills
@@ -40,16 +41,16 @@ model Session {
 }
 
 model Candidate {
-  id               String    @id @default(uuid())
+  id               String   @id @default(uuid())
   sessionId        String
   bucketId         String?
   originalBucketId String?
-  session          Session   @relation(fields: [sessionId], references: [id])
-  bucket           Bucket?   @relation(name: "CurrentBucket", fields: [bucketId], references: [id])
-  originalBucket   Bucket?   @relation(name: "OriginalBucket", fields: [originalBucketId], references: [id])
+  session          Session  @relation(fields: [sessionId], references: [id])
+  bucket           Bucket?  @relation(name: "CurrentBucket", fields: [bucketId], references: [id])
+  originalBucket   Bucket?  @relation(name: "OriginalBucket", fields: [originalBucketId], references: [id])
   resumes          Resume[]
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@index([sessionId])
 }

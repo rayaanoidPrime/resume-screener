@@ -8,7 +8,8 @@ interface JobFormData {
   department: string;
   location: string;
   employmentType: string;
-  experienceLevel: string;
+  minExperience: number;
+  maxExperience: number;
   jobDescription: string;
   requiredSkills: string[];
   preferredSkills: string[];
@@ -23,16 +24,6 @@ const EMPLOYMENT_TYPES = [
   "Contract",
   "Temporary",
   "Internship",
-];
-
-const EXPERIENCE_LEVELS = [
-  "Entry Level",
-  "Junior",
-  "Mid-Level",
-  "Senior",
-  "Lead",
-  "Principal",
-  "Executive",
 ];
 
 const DEPARTMENTS = [
@@ -69,7 +60,8 @@ export default function JobDetailsForm() {
     department: DEPARTMENTS[0],
     location: "",
     employmentType: EMPLOYMENT_TYPES[0],
-    experienceLevel: EXPERIENCE_LEVELS[0],
+    minExperience: 0,
+    maxExperience: 0,
     jobDescription: "",
     requiredSkills: [],
     preferredSkills: [],
@@ -97,6 +89,17 @@ export default function JobDetailsForm() {
     setFormData((prev) => ({
       ...prev,
       responsibilities,
+    }));
+  };
+
+  const handleExperienceChange = (
+    type: "minExperience" | "maxExperience",
+    value: string
+  ) => {
+    const experience = parseInt(value, 10);
+    setFormData((prev) => ({
+      ...prev,
+      [type]: isNaN(experience) ? 0 : experience,
     }));
   };
 
@@ -219,29 +222,40 @@ export default function JobDetailsForm() {
         {/* Experience Level */}
         <div>
           <label
-            htmlFor="experienceLevel"
+            htmlFor="minExperience"
             className="block text-sm font-medium text-gray-700"
           >
-            Experience Level
+            Minimum Experience (years)
           </label>
-          <select
-            id="experienceLevel"
+          <input
+            type="number"
+            id="minExperience"
             required
-            value={formData.experienceLevel}
+            value={formData.minExperience}
             onChange={(e) =>
-              setFormData((prev) => ({
-                ...prev,
-                experienceLevel: e.target.value,
-              }))
+              handleExperienceChange("minExperience", e.target.value)
             }
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
+
+        <div>
+          <label
+            htmlFor="maxExperience"
+            className="block text-sm font-medium text-gray-700"
           >
-            {EXPERIENCE_LEVELS.map((level) => (
-              <option key={level} value={level}>
-                {level}
-              </option>
-            ))}
-          </select>
+            Maximum Experience (years)
+          </label>
+          <input
+            type="number"
+            id="maxExperience"
+            required
+            value={formData.maxExperience}
+            onChange={(e) =>
+              handleExperienceChange("maxExperience", e.target.value)
+            }
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
         </div>
 
         {/* Required Education */}

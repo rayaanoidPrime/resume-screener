@@ -78,6 +78,19 @@ router.post(
           where: {
             id: sessionId,
           },
+          select: {
+            jobTitle: true,
+            jobDescription: true,
+            location: true,
+            employmentType: true,
+            minExperience: true,
+            maxExperience: true,
+            requiredSkills: true,
+            preferredSkills: true,
+            responsibilities: true,
+            educationRequired: true,
+            educationPreferred: true,
+          },
         });
 
         if (!session) {
@@ -99,7 +112,8 @@ router.post(
             description: session.jobDescription,
             location: session.location,
             employmentType: session.employmentType,
-            experienceLevel: session.experienceLevel,
+            minExperience: session.minExperience,
+            maxExperience: session.maxExperience,
             requiredSkills: session.requiredSkills,
             preferredSkills: session.preferredSkills,
             responsibilities: session.responsibilities,

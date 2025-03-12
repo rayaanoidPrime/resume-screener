@@ -18,7 +18,9 @@ router.post("/", authenticateToken, async (req: Request, res: Response) => {
       !sessionData.jobTitle ||
       !sessionData.jobDescription ||
       !sessionData.requiredSkills ||
-      !sessionData.responsibilities
+      !sessionData.responsibilities ||
+      sessionData.minExperience === undefined ||
+      sessionData.maxExperience === undefined
     ) {
       res.status(400).json({ error: "Missing required fields" });
       return;

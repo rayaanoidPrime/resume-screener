@@ -1,5 +1,6 @@
 import React from "react";
 import { type Resume } from "../services/api";
+import { checkExperience as calculateTotalExperience } from "../services/utils";
 
 interface CandidateComparisonProps {
   candidates: {
@@ -13,12 +14,16 @@ interface CandidateComparisonProps {
     structuredData: Resume["structuredData"];
   }[];
   requiredSkills: string[];
+  minExperience: number;
+  maxExperience: number;
   onClose: () => void;
 }
 
 const CandidateComparison: React.FC<CandidateComparisonProps> = ({
   candidates,
   requiredSkills,
+  minExperience,
+  maxExperience,
   onClose,
 }) => {
   if (candidates.length === 0) {
@@ -45,6 +50,21 @@ const CandidateComparison: React.FC<CandidateComparisonProps> = ({
     return requiredSkills.length > 0
       ? Math.round((matchedSkills.length / requiredSkills.length) * 100)
       : 0;
+  };
+
+  const checkExperience = (
+    candidate: CandidateComparisonProps["candidates"][0]
+  ) => {
+    const totalExperience = calculateTotalExperience(
+      candidate.structuredData.experience
+    );
+
+    if (totalExperience < minExperience) {
+      return `Below minimum experience requirement of ${minExperience} years`;
+    } else if (totalExperience > maxExperience) {
+      return `Exceeds maximum experience limit of ${maxExperience} years`;
+    }
+    return "Experience is within the range";
   };
 
   return (
@@ -255,6 +275,15 @@ const CandidateComparison: React.FC<CandidateComparisonProps> = ({
                         <span className="font-medium text-gray-900">
                           {candidate.structuredData.contact_info.name ||
                             `Candidate ${index + 1}`}
+                        </span>
+                        <span
+                          className={`text-sm mt-1 block ${
+                            checkExperience(candidate).includes("within")
+                              ? "text-green-700"
+                              : "text-red-700"
+                          }`}
+                        >
+                          {checkExperience(candidate)}
                         </span>
                       </div>
                       <div className="flex-1">

@@ -89,7 +89,8 @@ export interface ResumeJobData {
     description: string;
     location: string;
     employmentType: string;
-    experienceLevel: string;
+    minExperience: number;
+    maxExperience: number;
     requiredSkills: string[];
     preferredSkills: string[];
     responsibilities: string[];

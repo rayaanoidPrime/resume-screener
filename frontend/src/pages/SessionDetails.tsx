@@ -6,6 +6,7 @@ import {
   type Bucket as ApiBucket,
   type Candidate as ApiCandidate,
 } from "../services/api";
+import { checkExperience as calculateTotalExperience } from "../services/utils";
 
 import SkillsMatchVisualizer from "../components/SkillsMatchVisualizer";
 import BucketComponent from "../components/BucketComponent";
@@ -493,6 +494,25 @@ export default function SessionDetails() {
     }
   };
 
+  const checkExperience = (
+    experience: {
+      company: string;
+      title: string;
+      dates: string;
+      location: string;
+      description: string[];
+    }[]
+  ): string => {
+    const totalExperience = calculateTotalExperience(experience);
+    if (totalExperience < (sessionDetails?.minExperience || 0)) {
+      return `Below minimum experience of ${sessionDetails?.minExperience} years`;
+    }
+    if (totalExperience > (sessionDetails?.maxExperience || 0)) {
+      return `Exceeds maximum experience of ${sessionDetails?.maxExperience} years`;
+    }
+    return "Meets experience requirements";
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       {error && (
@@ -526,6 +546,8 @@ export default function SessionDetails() {
               },
             }))}
             requiredSkills={sessionDetails?.requiredSkills || []}
+            minExperience={sessionDetails?.minExperience || 0}
+            maxExperience={sessionDetails?.maxExperience || 0}
             onClose={() => {
               setComparingCandidates([]);
               setSelectedCandidateIds(new Set());
@@ -552,7 +574,7 @@ export default function SessionDetails() {
                 {sessionDetails.employmentType}
               </span>
               <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-white text-blue-800">
-                {sessionDetails.experienceLevel}
+                {sessionDetails.minExperience} - {sessionDetails.maxExperience}
               </span>
             </div>
           </div>
@@ -1041,6 +1063,32 @@ export default function SessionDetails() {
                                 )}
                               </div>
                             ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Experience Check */}
+                      {resumeDetails.structuredData.experience.length > 0 && (
+                        <div
+                          className={`bg-white rounded-lg border border-gray-200 ${
+                            checkExperience(
+                              resumeDetails.structuredData.experience
+                            ).includes("Meets")
+                              ? "text-green-700"
+                              : "text-red-700"
+                          }`}
+                        >
+                          <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                            <h5 className="font-semibold text-gray-900">
+                              Experience Check
+                            </h5>
+                          </div>
+                          <div className="p-4">
+                            <p className="text-sm">
+                              {checkExperience(
+                                resumeDetails.structuredData.experience
+                              )}
+                            </p>
                           </div>
                         </div>
                       )}

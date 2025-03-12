@@ -242,5 +242,13 @@ export function getQualitativeScorePrompt(
   - Due diligence expertise
   - Portfolio management experience
   
+  Guidelines:
+  - The candidate should have experience relevant to the job details.
+  - The candidate should have more experience than the specified minimum experience in the job details.
+  - The candiadate should have less experience than the specified maximum experience in the job details
+  - The candidate should have skills aligned with the job details.
+  - The candidate should have education relevant to the job details.
+  - BE VERY STRICT ABOUT THE EXPERIENCE AND EDUCATION.
+  
   Return only a number between 0 and 1, with no explanation or other text.`;
 }

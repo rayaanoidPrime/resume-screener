@@ -21,7 +21,8 @@ interface JobFormData {
   department: string;
   location: string;
   employmentType: string;
-  experienceLevel: string;
+  minExperience: number;
+  maxExperience: number;
   jobDescription: string;
   requiredSkills: string[];
   preferredSkills: string[];
@@ -36,7 +37,8 @@ interface SessionResponse {
   department: string;
   location: string;
   employmentType: string;
-  experienceLevel: string;
+  minExperience: number;
+  maxExperience: number;
   jobDescription: string;
   requiredSkills: string[];
   preferredSkills: string[];
