@@ -9,75 +9,18 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
+import { type Resume } from "../services/api";
 
 interface CandidateComparisonProps {
   candidates: {
     resumeId: string;
     candidateId: string;
-    name: string | null;
+    name: string;
     scores: {
       keywordScore: number;
-      qualitativeScore?: number;
       totalScore: number;
     };
-    structuredData: {
-      contact_info: {
-        name: string | null;
-        email: string | null;
-        phone: string | null;
-        location: string | null;
-        linkedin: string | null;
-      };
-      skills: {
-        financial_modeling?: string[];
-        valuation_methods?: string[];
-        research_tools?: string[];
-        technical_skills?: string[];
-        soft_skills?: string[];
-        [key: string]: string[] | undefined;
-      };
-      experience: {
-        company: string;
-        title: string;
-        dates: string;
-        location: string;
-        description: string[];
-        deal_experience?: {
-          name: string;
-          size: string;
-          type: string;
-          role: string;
-        }[];
-        sectors?: string[];
-        investment_types?: string[];
-      }[];
-      education: {
-        institution: string;
-        degree: string;
-        field: string;
-        dates: string;
-        gpa?: string;
-        relevant_coursework?: string[];
-      }[];
-      certifications?: {
-        name: string;
-        issuer: string;
-        date: string;
-        level?: string;
-      }[];
-      research_experience?: {
-        title: string;
-        description: string;
-        sectors: string[];
-        methodologies: string[];
-      }[];
-      additional?: {
-        deal_value?: string;
-        sector_expertise?: string[];
-        publications?: string[];
-        conferences?: string[];
-      };
-    };
+    structuredData: Resume["structuredData"];
   }[];
   requiredSkills: string[];
   onClose: () => void;
@@ -92,37 +35,33 @@ const CandidateComparison: React.FC<CandidateComparisonProps> = ({
     return null;
   }
 
-  // Format scores for radar chart (convert to percentage)
-  const formatScore = (score: number) => Math.round(score * 100);
+  const scoreData = candidates.map((candidate) => ({
+    name: candidate.name,
+    "Keyword Match": (candidate.scores.keywordScore * 100).toFixed(1),
+    "Total Score": (candidate.scores.totalScore * 100).toFixed(1),
+  }));
 
-  // Prepare data for radar chart
+  // Format scores for radar chart (convert to percentage)
   const radarData = [
     {
-      metric: "Keyword Match",
-      ...candidates.reduce((acc, candidate, index) => {
-        acc[`Candidate ${index + 1}`] = formatScore(
-          candidate.scores.keywordScore
-        );
-        return acc;
-      }, {} as Record<string, number>),
+      subject: "Keyword Match",
+      ...candidates.reduce(
+        (acc, c) => ({
+          ...acc,
+          [c.name]: (c.scores.keywordScore * 100).toFixed(1),
+        }),
+        {}
+      ),
     },
     {
-      metric: "Qualitative Score",
-      ...candidates.reduce((acc, candidate, index) => {
-        acc[`Candidate ${index + 1}`] = formatScore(
-          candidate.scores.qualitativeScore || 0
-        );
-        return acc;
-      }, {} as Record<string, number>),
-    },
-    {
-      metric: "Overall Match",
-      ...candidates.reduce((acc, candidate, index) => {
-        acc[`Candidate ${index + 1}`] = formatScore(
-          candidate.scores.totalScore
-        );
-        return acc;
-      }, {} as Record<string, number>),
+      subject: "Total Score",
+      ...candidates.reduce(
+        (acc, c) => ({
+          ...acc,
+          [c.name]: (c.scores.totalScore * 100).toFixed(1),
+        }),
+        {}
+      ),
     },
   ];
 
@@ -192,7 +131,7 @@ const CandidateComparison: React.FC<CandidateComparisonProps> = ({
               <ResponsiveContainer width="100%" height="100%">
                 <RadarChart outerRadius="80%" data={radarData}>
                   <PolarGrid />
-                  <PolarAngleAxis dataKey="metric" />
+                  <PolarAngleAxis dataKey="subject" />
                   <PolarRadiusAxis angle={30} domain={[0, 100]} />
                   <Tooltip formatter={(value) => `${value}%`} />
                   <Legend />
@@ -200,11 +139,8 @@ const CandidateComparison: React.FC<CandidateComparisonProps> = ({
                   {candidates.map((candidate, index) => (
                     <Radar
                       key={candidate.resumeId}
-                      name={
-                        candidate.structuredData.contact_info.name ||
-                        `Candidate ${index + 1}`
-                      }
-                      dataKey={`Candidate ${index + 1}`}
+                      name={candidate.name}
+                      dataKey={candidate.name}
                       stroke={colors[index % colors.length]}
                       fill={colors[index % colors.length]}
                       fillOpacity={0.2}

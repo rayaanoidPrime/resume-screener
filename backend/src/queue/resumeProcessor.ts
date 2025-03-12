@@ -229,6 +229,31 @@ resumeQueue.process(async (job) => {
       structuredData
     );
 
+    // Fetch default buckets
+    const excellentBucket = await prisma.bucket.findFirst({
+      where: { sessionId: sessionId, name: "Excellent" },
+    });
+    const goodBucket = await prisma.bucket.findFirst({
+      where: { sessionId: sessionId, name: "Good" },
+    });
+    const noGoBucket = await prisma.bucket.findFirst({
+      where: { sessionId: sessionId, name: "No Go" },
+    });
+
+    if (!excellentBucket || !goodBucket || !noGoBucket) {
+      throw new Error("Default buckets not found");
+    }
+
+    // Assign bucket based on totalScore
+    let bucketId;
+    if (totalScore >= 0.8) {
+      bucketId = excellentBucket.id;
+    } else if (totalScore >= 0.5) {
+      bucketId = goodBucket.id;
+    } else {
+      bucketId = noGoBucket.id;
+    }
+
     // Update progress to 80%
     await job.progress(80);
 
@@ -245,6 +270,12 @@ resumeQueue.process(async (job) => {
             ? "processed"
             : "needs_review",
       },
+    });
+
+    // Update candidate with current original bucket assignment
+    await prisma.candidate.update({
+      where: { id: updatedResume.candidateId },
+      data: { bucketId, originalBucketId: bucketId },
     });
 
     // Create evaluation record

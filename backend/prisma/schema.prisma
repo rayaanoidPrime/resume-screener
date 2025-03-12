@@ -19,54 +19,71 @@ model User {
 }
 
 model Session {
-  id                    String      @id @default(uuid())
-  userId               String
-  jobTitle             String
-  department           String
-  location             String
-  employmentType       String      // Full-time, Part-time, Contract, etc.
-  experienceLevel      String      // Junior, Mid, Senior
-  jobDescription       String      // Main job description
-  requiredSkills       String[]    // Array of required skills
-  preferredSkills      String[]    // Array of preferred skills
-  educationRequired    String      // Minimum education requirement
-  educationPreferred   String?     // Preferred education level
-  responsibilities     String[]    // Array of key responsibilities
-  createdAt           DateTime    @default(now())
-  updatedAt           DateTime    @updatedAt
-  user                User        @relation(fields: [userId], references: [id])
-  candidates          Candidate[]
+  id                 String      @id @default(uuid())
+  userId             String
+  jobTitle           String
+  department         String
+  location           String
+  employmentType     String // Full-time, Part-time, Contract, etc.
+  experienceLevel    String // Junior, Mid, Senior
+  jobDescription     String // Main job description
+  requiredSkills     String[] // Array of required skills
+  preferredSkills    String[] // Array of preferred skills
+  educationRequired  String // Minimum education requirement
+  educationPreferred String? // Preferred education level
+  responsibilities   String[] // Array of key responsibilities
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  user               User        @relation(fields: [userId], references: [id])
+  candidates         Candidate[]
+  buckets            Bucket[]
 }
 
 model Candidate {
-  id          String   @id @default(uuid())
-  sessionId   String
-  session     Session  @relation(fields: [sessionId], references: [id])
-  resumes     Resume[]
+  id               String   @id @default(uuid())
+  sessionId        String
+  bucketId         String?
+  originalBucketId String?
+  session          Session  @relation(fields: [sessionId], references: [id])
+  bucket           Bucket?  @relation(name: "CurrentBucket", fields: [bucketId], references: [id])
+  originalBucket   Bucket?  @relation(name: "OriginalBucket", fields: [originalBucketId], references: [id])
+  resumes          Resume[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@index([sessionId])
 }
 
+model Bucket {
+  id                 String      @id @default(uuid())
+  name               String // e.g., "Excellent", "Good", "No Go", or custom names
+  sessionId          String
+  session            Session     @relation(fields: [sessionId], references: [id])
+  currentCandidates  Candidate[] @relation("CurrentBucket")
+  originalCandidates Candidate[] @relation("OriginalBucket")
+  isDefault          Boolean     @default(false) // To identify default buckets
+}
+
 model Resume {
-  id           String    @id @default(uuid())
-  candidateId  String
-  filePath     String
-  extractedText String?
+  id             String      @id @default(uuid())
+  candidateId    String
+  filePath       String
+  extractedText  String?
   structuredData Json?
-  status       String    @default("processed")
-  createdAt    DateTime  @default(now())
-  candidate    Candidate @relation(fields: [candidateId], references: [id])
-  evaluation   Evaluation?
+  status         String      @default("processed")
+  createdAt      DateTime    @default(now())
+  candidate      Candidate   @relation(fields: [candidateId], references: [id])
+  evaluation     Evaluation?
 
   @@index([candidateId])
 }
 
 model Evaluation {
-  id           String   @id @default(uuid())
-  resumeId     String   @unique
-  resume       Resume   @relation(fields: [resumeId], references: [id], onDelete: Cascade)
-  keywordScore Float
+  id               String   @id @default(uuid())
+  resumeId         String   @unique
+  resume           Resume   @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  keywordScore     Float
   qualitativeScore Float
-  totalScore   Float
-  createdAt    DateTime @default(now())
-} 
+  totalScore       Float
+  createdAt        DateTime @default(now())
+}

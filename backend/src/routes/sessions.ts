@@ -1,4 +1,4 @@
-import { Request, Response, Router } from "express";
+import { Request, Response, Router, NextFunction } from "express";
 import { prisma } from "../prisma/client";
 import { authenticateToken } from "../middleware/auth";
 
@@ -11,22 +11,15 @@ router.post("/", authenticateToken, async (req: Request, res: Response) => {
       return;
     }
 
-    const {
-      jobTitle,
-      department,
-      location,
-      employmentType,
-      experienceLevel,
-      jobDescription,
-      requiredSkills,
-      preferredSkills,
-      educationRequired,
-      educationPreferred,
-      responsibilities,
-    } = req.body;
+    const sessionData = req.body;
 
     // Validate required fields
-    if (!jobTitle || !jobDescription || !requiredSkills || !responsibilities) {
+    if (
+      !sessionData.jobTitle ||
+      !sessionData.jobDescription ||
+      !sessionData.requiredSkills ||
+      !sessionData.responsibilities
+    ) {
       res.status(400).json({ error: "Missing required fields" });
       return;
     }
@@ -44,19 +37,21 @@ router.post("/", authenticateToken, async (req: Request, res: Response) => {
     const session = await prisma.session.create({
       data: {
         userId: req.user.id,
-        jobTitle,
-        department,
-        location,
-        employmentType,
-        experienceLevel,
-        jobDescription,
-        requiredSkills,
-        preferredSkills,
-        educationRequired,
-        educationPreferred,
-        responsibilities,
+        ...sessionData,
       },
     });
+
+    // Create default buckets
+    const defaultBuckets = ["Excellent", "Good", "No Go"];
+    for (const name of defaultBuckets) {
+      await prisma.bucket.create({
+        data: {
+          name,
+          sessionId: session.id,
+          isDefault: true,
+        },
+      });
+    }
 
     res.status(201).json(session);
   } catch (error) {
@@ -64,6 +59,136 @@ router.post("/", authenticateToken, async (req: Request, res: Response) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
+// Get all buckets for a session
+router.get(
+  "/:sessionId/buckets",
+  authenticateToken,
+  async (req: Request, res: Response) => {
+    try {
+      const sessionId = req.params.sessionId;
+      const session = await prisma.session.findFirst({
+        where: { id: sessionId, userId: req.user?.id },
+      });
+      if (!session) {
+        res.status(404).json({ error: "Session not found" });
+        return;
+      }
+
+      const buckets = await prisma.bucket.findMany({ where: { sessionId } });
+      res.json(buckets);
+    } catch (error) {
+      console.error("Bucket retrieval error:", error);
+      res
+        .status(500)
+        .json({ error: "Internal Server Error: Bucket retrieval error" });
+    }
+  }
+);
+
+// create a bucket
+router.post(
+  "/:sessionId/buckets",
+  authenticateToken,
+  async (req: Request, res: Response) => {
+    try {
+      if (!req.user?.id) {
+        res.status(401).json({ error: "User ID not found" });
+        return;
+      }
+
+      const sessionId = req.params.sessionId;
+      const { name } = req.body;
+      const session = await prisma.session.findFirst({
+        where: { id: sessionId, userId: req.user.id },
+      });
+      if (!session) {
+        res.status(404).json({ error: "Session not found" });
+        return;
+      }
+
+      const bucket = await prisma.bucket.create({
+        data: { name, sessionId, isDefault: false },
+      });
+      res.status(201).json(bucket);
+    } catch (error) {
+      console.error("Bucket creation error:", error);
+      res
+        .status(500)
+        .json({ error: "Internal Server Error: Bucket creation error" });
+    }
+  }
+);
+
+// Update the bucket of a candidate
+router.put(
+  "/candidates/:candidateId/bucket",
+  authenticateToken,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user?.id) {
+        res.status(401).json({ error: "User ID not found" });
+        return;
+      }
+
+      const { candidateId } = req.params;
+      const { bucketId } = req.body;
+
+      // find candidate with id
+      const candidate = await prisma.candidate.findFirst({
+        where: { id: candidateId },
+        include: { session: true },
+      });
+      if (!candidate || candidate.session.userId !== req.user.id) {
+        res.status(404).json({ error: "Candidate not found" });
+        return;
+      }
+
+      // find bucket with id
+      const bucket = await prisma.bucket.findFirst({
+        where: { id: bucketId, sessionId: candidate.sessionId },
+      });
+      if (!bucket) {
+        res.status(400).json({ error: "Invalid bucket" });
+        return;
+      }
+
+      const updatedCandidate = await prisma.candidate.update({
+        where: { id: candidateId },
+        data: { bucketId },
+        include: { bucket: true },
+      });
+      res.status(200).json(updatedCandidate);
+    } catch (error) {
+      console.error("Bucket update error:", error);
+      res
+        .status(500)
+        .json({ error: "Internal server error: Bucket update error" });
+    }
+  }
+);
+
+// Get candidates for a session
+router.get(
+  "/:sessionId/candidates",
+  authenticateToken,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const sessionId = req.params.sessionId;
+      const candidates = await prisma.candidate.findMany({
+        where: { sessionId },
+        include: {
+          resumes: { include: { evaluation: true } },
+          bucket: true,
+        },
+      });
+      res.status(200).json(candidates);
+    } catch (error) {
+      console.error("Candidates retrieval error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+);
 
 // Get ranked list of candidates/resumes for a session
 router.get("/:sessionId/rankings", authenticateToken, async (req, res) => {
@@ -237,6 +362,121 @@ router.get(
       res.status(200).json(response);
     } catch (error) {
       console.error("Resume details retrieval error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+);
+
+// Delete a bucket
+router.delete(
+  "/:sessionId/buckets/:bucketId",
+  authenticateToken,
+  async (req: Request, res: Response) => {
+    try {
+      if (!req.user?.id) {
+        res.status(401).json({ error: "User ID not found" });
+        return;
+      }
+
+      const { sessionId, bucketId } = req.params;
+
+      // Verify session exists and belongs to user
+      const session = await prisma.session.findFirst({
+        where: { id: sessionId, userId: req.user.id },
+      });
+
+      if (!session) {
+        res.status(404).json({ error: "Session not found" });
+        return;
+      }
+
+      // Check if bucket exists and belongs to session
+      const bucket = await prisma.bucket.findFirst({
+        where: { id: bucketId, sessionId },
+      });
+
+      if (!bucket) {
+        res.status(404).json({ error: "Bucket not found" });
+        return;
+      }
+
+      // Don't allow deletion of default buckets
+      if (bucket.isDefault) {
+        res.status(400).json({ error: "Cannot delete default buckets" });
+        return;
+      }
+
+      // Find default bucket (we'll use "Good" as the fallback)
+      const defaultBucket = await prisma.bucket.findFirst({
+        where: { sessionId, isDefault: true, name: "Good" },
+      });
+
+      if (!defaultBucket) {
+        res.status(500).json({ error: "Default bucket not found" });
+        return;
+      }
+
+      // Move all candidates from the bucket being deleted to the default bucket
+      await prisma.candidate.updateMany({
+        where: { bucketId },
+        data: { bucketId: defaultBucket.id },
+      });
+
+      // Delete the bucket
+      await prisma.bucket.delete({
+        where: { id: bucketId },
+      });
+
+      res.status(200).json({ message: "Bucket deleted successfully" });
+    } catch (error) {
+      console.error("Bucket deletion error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+);
+
+// Reset all candidates to original buckets
+router.post(
+  "/:sessionId/buckets/reset",
+  authenticateToken,
+  async (req: Request, res: Response) => {
+    try {
+      if (!req.user?.id) {
+        res.status(401).json({ error: "User ID not found" });
+        return;
+      }
+
+      const { sessionId } = req.params;
+
+      // Verify session exists and belongs to user
+      const session = await prisma.session.findFirst({
+        where: { id: sessionId, userId: req.user.id },
+      });
+
+      if (!session) {
+        res.status(404).json({ error: "Session not found" });
+        return;
+      }
+
+      // Alternative solution
+      await prisma.$executeRaw`
+        UPDATE "Candidate"
+        SET "bucketId" = "originalBucketId"
+        WHERE "sessionId" = ${sessionId}
+      `;
+
+      // Then fetch the updated candidates
+      const candidates = await prisma.candidate.findMany({
+        where: { sessionId },
+        include: {
+          resumes: { include: { evaluation: true } },
+          bucket: true,
+        },
+      });
+
+      res.status(200).json(candidates);
+    } catch (error) {
+      console.error("Reset candidates error:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   }

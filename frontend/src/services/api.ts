@@ -124,6 +124,80 @@ interface ResumeDetails {
   };
 }
 
+export interface Resume {
+  id: string;
+  filePath: string;
+  extractedText: string;
+  status: string;
+  structuredData: {
+    contact_info: {
+      name: string | null;
+      email: string | null;
+      phone: string | null;
+      location: string | null;
+      linkedin: string | null;
+      portfolio: string | null;
+    };
+    summary: string | null;
+    experience: {
+      company: string;
+      title: string;
+      dates: string;
+      location: string;
+      description: string[];
+    }[];
+    education:
+      | {
+          institution: string;
+          degree: string;
+          field: string;
+          dates: string;
+          gpa: string | null;
+        }[]
+      | null;
+    skills: {
+      programming_languages?: string[];
+      frameworks?: string[];
+      databases?: string[];
+      tools?: string[];
+      [key: string]: string[] | undefined;
+    };
+    certifications: {
+      name: string;
+      issuer: string;
+      date: string;
+    }[];
+    projects: {
+      name: string;
+      description: string;
+      technologies: string[];
+      link: string;
+    }[];
+    languages: {
+      language: string;
+      proficiency: string;
+    }[];
+  };
+  evaluation?: {
+    keywordScore: number;
+    totalScore: number;
+  };
+}
+
+export interface Bucket {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  sessionId: string;
+}
+
+export interface Candidate {
+  id: string;
+  bucketId: string;
+  sessionId: string;
+  resumes: Resume[];
+}
+
 const handleApiError = (error: unknown) => {
   if (axios.isAxiosError(error)) {
     const axiosError = error as AxiosError<{ error: string }>;
@@ -231,23 +305,9 @@ export const sessionApi = {
     return response.data;
   },
 
-  getRankings: async (sessionId: string, token: string) => {
-    const response = await fetch(`${API_URL}/sessions/${sessionId}/rankings`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error("Failed to fetch rankings");
-    }
-
-    return response.json();
-  },
-
   async getSession(sessionId: string, token: string) {
     try {
-      const response = await axios.get(`${API_URL}/sessions/${sessionId}`, {
+      const response = await api.get(`/sessions/${sessionId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       return response.data;
@@ -258,7 +318,7 @@ export const sessionApi = {
 
   async getSessions(token: string) {
     try {
-      const response = await axios.get(`${API_URL}/sessions`, {
+      const response = await api.get(`/sessions`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       return response.data;
@@ -273,8 +333,8 @@ export const sessionApi = {
     token: string
   ): Promise<ResumeDetails> {
     try {
-      const response = await axios.get(
-        `${API_URL}/sessions/${sessionId}/resumes/${resumeId}`,
+      const response = await api.get(
+        `/sessions/${sessionId}/resumes/${resumeId}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -283,5 +343,69 @@ export const sessionApi = {
     } catch (error) {
       throw handleApiError(error);
     }
+  },
+
+  getBuckets: async (sessionId: string, token: string): Promise<Bucket[]> => {
+    const response = await api.get(`/sessions/${sessionId}/buckets`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  },
+
+  getCandidates: async (
+    sessionId: string,
+    token: string
+  ): Promise<Candidate[]> => {
+    const response = await api.get(`/sessions/${sessionId}/candidates`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  },
+
+  createBucket: async (
+    sessionId: string,
+    name: string,
+    token: string
+  ): Promise<Bucket> => {
+    const response = await api.post(
+      `/sessions/${sessionId}/buckets`,
+      { name },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    return response.data;
+  },
+
+  updateCandidateBucket: async (
+    candidateId: string,
+    bucketId: string,
+    token: string
+  ): Promise<void> => {
+    await api.put(
+      `/sessions/candidates/${candidateId}/bucket`,
+      { bucketId },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+  },
+
+  deleteBucket: async (
+    sessionId: string,
+    bucketId: string,
+    token: string
+  ): Promise<void> => {
+    await api.delete(`/sessions/${sessionId}/buckets/${bucketId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  },
+
+  resetBuckets: async (
+    sessionId: string,
+    token: string
+  ): Promise<Candidate[]> => {
+    const response = await api.post(
+      `/sessions/${sessionId}/buckets/reset`,
+      {},
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    return response.data;
   },
 };

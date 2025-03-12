@@ -9,6 +9,8 @@
     "dev": "ts-node-dev --respawn src/index.ts",
     "prisma:migrate": "npx prisma migrate dev",
     "prisma:generate": "npx prisma generate --schema=./prisma/schema.prisma",
+    "prisma:reset": "npx prisma migrate reset",
+    "prisma:format": "npx prisma format --schema=./prisma/schema.prisma",
     "format": "prettier --write ."
   },
   "keywords": [],

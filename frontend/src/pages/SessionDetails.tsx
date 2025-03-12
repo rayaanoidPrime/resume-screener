@@ -1,10 +1,14 @@
 import { FormEvent, useState, useRef, useEffect } from "react";
 import { useParams, Navigate } from "react-router";
 import { useAuth } from "../context/AuthContext";
-import { sessionApi } from "../services/api";
-import CandidateMetrics from "../components/CandidateMetrics";
-import CandidateComparison from "../components/CandidateComparison";
+import {
+  sessionApi,
+  type Bucket as ApiBucket,
+  type Candidate as ApiCandidate,
+} from "../services/api";
+
 import SkillsMatchVisualizer from "../components/SkillsMatchVisualizer";
+import BucketComponent from "../components/BucketComponent";
 
 interface JobStatus {
   jobId: string;
@@ -35,77 +39,6 @@ interface ViewingResume {
   filePath: string;
   mimeType: string;
   extractedText: string;
-}
-
-interface RankedCandidate {
-  resumeId: string;
-  candidateId: string;
-  filePath: string;
-  scores: {
-    keywordScore: number;
-    qualitativeScore?: number;
-    totalScore: number;
-  };
-  structuredData: {
-    contact_info: {
-      name: string | null;
-      email: string | null;
-      phone: string | null;
-      location: string | null;
-      linkedin: string | null;
-      portfolio: string | null;
-    };
-    summary: string | null;
-    experience: {
-      company: string;
-      title: string;
-      dates: string;
-      location: string;
-      description: string[];
-    }[];
-    education:
-      | {
-          institution: string;
-          degree: string;
-          field: string;
-          dates: string;
-          gpa: string | null;
-        }[]
-      | null;
-    skills: {
-      programming_languages?: string[];
-      frameworks?: string[];
-      databases?: string[];
-      tools?: string[];
-    };
-    certifications: {
-      name: string;
-      issuer: string;
-      date: string;
-    }[];
-    projects: {
-      name: string;
-      description: string;
-      technologies: string[];
-      link: string;
-    }[];
-    languages: {
-      language: string;
-      proficiency: string;
-    }[];
-    additional: Record<string, string | string[]> | null;
-    confidence: {
-      contact_info: "high" | "medium" | "low";
-      summary: "high" | "medium" | "low";
-      experience: "high" | "medium" | "low";
-      education: "high" | "medium" | "low";
-      skills: "high" | "medium" | "low";
-      certifications: "high" | "medium" | "low";
-      projects: "high" | "medium" | "low";
-      languages: "high" | "medium" | "low";
-      additional: "high" | "medium" | "low";
-    };
-  };
 }
 
 interface ResumeDetails {
@@ -179,7 +112,6 @@ export default function SessionDetails() {
     null
   );
   const [saving, setSaving] = useState(false);
-  const [rankings, setRankings] = useState<RankedCandidate[]>([]);
   const [loading, setLoading] = useState(false);
   const [sessionDetails, setSessionDetails] = useState<any>(null);
   const [loadingSession, setLoadingSession] = useState(true);
@@ -192,10 +124,10 @@ export default function SessionDetails() {
     null
   );
   const [loadingResume, setLoadingResume] = useState(false);
-  const [selectedCandidates, setSelectedCandidates] = useState<
-    RankedCandidate[]
-  >([]);
-  const [showComparison, setShowComparison] = useState(false);
+  const [buckets, setBuckets] = useState<ApiBucket[]>([]);
+  const [candidates, setCandidates] = useState<ApiCandidate[]>([]);
+  const [isAddingBucket, setIsAddingBucket] = useState(false);
+  const [newBucketName, setNewBucketName] = useState("");
 
   useEffect(() => {
     const fetchSessionDetails = async () => {
@@ -204,15 +136,17 @@ export default function SessionDetails() {
         const data = await sessionApi.getSession(sessionId, token);
         setSessionDetails(data);
 
-        // Fetch rankings after getting session details
+        // Fetch buckets and candidates
         try {
-          const rankingsData = await sessionApi.getRankings(sessionId, token);
-          if (rankingsData && Array.isArray(rankingsData)) {
-            setRankings(rankingsData);
-          }
-        } catch (rankingsErr) {
-          console.error("Failed to fetch rankings:", rankingsErr);
-          // Don't set error here as we still have session details
+          const [bucketsData, candidatesData] = await Promise.all([
+            sessionApi.getBuckets(sessionId, token),
+            sessionApi.getCandidates(sessionId, token),
+          ]);
+          setBuckets(bucketsData);
+          setCandidates(candidatesData);
+        } catch (err) {
+          console.error("Failed to fetch buckets or candidates:", err);
+          setError("Failed to fetch buckets or candidates");
         }
       } catch (err) {
         setError(
@@ -233,56 +167,6 @@ export default function SessionDetails() {
       }
     };
   }, []);
-
-  const fetchRankings = async () => {
-    if (!sessionId || !token) return;
-
-    setLoading(true);
-    setError("");
-
-    console.log("Fetching rankings for session:", sessionId);
-
-    try {
-      const data = await sessionApi.getRankings(sessionId, token);
-      console.log("Received rankings:", data);
-
-      if (data && Array.isArray(data)) {
-        setRankings(data);
-
-        // Show success message only when manually fetching rankings after upload
-        const successMessage = document.createElement("div");
-        successMessage.className =
-          "fixed bottom-4 right-4 bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded shadow-md animate-fadeIn";
-        successMessage.innerHTML = `
-          <div class="flex">
-            <div class="flex-shrink-0">
-              <svg class="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div class="ml-3">
-              <p class="text-sm font-medium">Successfully evaluated ${data.length} candidates!</p>
-            </div>
-          </div>
-        `;
-        document.body.appendChild(successMessage);
-
-        setTimeout(() => {
-          if (document.body.contains(successMessage)) {
-            document.body.removeChild(successMessage);
-          }
-        }, 5000);
-      } else {
-        console.error("Invalid rankings data:", data);
-        setError("Received invalid rankings data from server");
-      }
-    } catch (err) {
-      console.error("Error fetching rankings:", err);
-      setError(err instanceof Error ? err.message : "Failed to fetch rankings");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (!isAuthenticated) {
     return <Navigate to="/login" />;
@@ -349,18 +233,28 @@ export default function SessionDetails() {
             pollingIntervalRef.current = undefined;
           }
 
-          // Automatically fetch rankings when all jobs are completed
+          // Automatically fetch candidates when all jobs are completed
           const hasCompletedJobs = Object.values(statuses).some(
             (status) => status === "completed"
           );
 
           if (hasCompletedJobs) {
             console.log(
-              "Some jobs completed successfully, fetching rankings..."
+              "Some jobs completed successfully, fetching candidates..."
             );
             // Add a small delay to ensure backend processing is complete
-            setTimeout(() => {
-              fetchRankings();
+            setTimeout(async () => {
+              try {
+                const [bucketsData, candidatesData] = await Promise.all([
+                  sessionApi.getBuckets(sessionId, token),
+                  sessionApi.getCandidates(sessionId, token),
+                ]);
+                setBuckets(bucketsData);
+                setCandidates(candidatesData);
+              } catch (err) {
+                console.error("Failed to fetch buckets or candidates:", err);
+                setError("Failed to fetch updated candidates");
+              }
             }, 1000);
           }
         }
@@ -428,20 +322,6 @@ export default function SessionDetails() {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "completed":
-        return "text-green-500";
-      case "failed":
-        return "text-red-500";
-      case "waiting":
-      case "active":
-        return "text-yellow-500";
-      default:
-        return "text-gray-500";
-    }
-  };
-
   const handleSave = async (resumeId: string, extractedText: string) => {
     if (!token) return;
 
@@ -475,8 +355,8 @@ export default function SessionDetails() {
     return `${(score * 100).toFixed(1)}%`;
   };
 
-  const handleViewResume = async (resumeId: string) => {
-    if (!sessionId || !token) return;
+  const handleViewResume = async (resumeId: string | undefined) => {
+    if (!sessionId || !token || !resumeId) return;
 
     setLoadingResume(true);
     try {
@@ -501,18 +381,93 @@ export default function SessionDetails() {
     }
   };
 
-  // Toggle candidate selection for comparison
-  const toggleCandidateSelection = (candidate: RankedCandidate) => {
-    if (selectedCandidates.some((c) => c.resumeId === candidate.resumeId)) {
-      setSelectedCandidates(
-        selectedCandidates.filter((c) => c.resumeId !== candidate.resumeId)
+  const handleDragEnd = async (result: any) => {
+    const { source, destination, draggableId } = result;
+    if (!token) return;
+
+    if (!destination) return;
+    if (source.droppableId === destination.droppableId) return;
+
+    try {
+      // Update the candidate's bucket in the backend
+      await sessionApi.updateCandidateBucket(
+        draggableId,
+        destination.droppableId,
+        token
       );
-    } else {
-      if (selectedCandidates.length < 5) {
-        // Limit to 5 candidates for comparison
-        setSelectedCandidates([...selectedCandidates, candidate]);
-      } else {
-        setError("You can compare up to 5 candidates at a time");
+
+      // Update local state
+      setCandidates((prevCandidates) =>
+        prevCandidates.map((candidate) =>
+          candidate.id === draggableId
+            ? { ...candidate, bucketId: destination.droppableId }
+            : candidate
+        )
+      );
+    } catch (err) {
+      console.error("Failed to update candidate bucket:", err);
+      setError("Failed to move candidate to new bucket");
+    }
+  };
+
+  const handleAddBucket = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!newBucketName.trim() || !sessionId || !token) return;
+
+    try {
+      const newBucket = await sessionApi.createBucket(
+        sessionId,
+        newBucketName,
+        token
+      );
+      setBuckets((prev) => [...prev, newBucket]);
+      setNewBucketName("");
+      setIsAddingBucket(false);
+    } catch (err) {
+      setError("Failed to create new bucket");
+    }
+  };
+
+  const handleResetBuckets = async () => {
+    if (!sessionId || !token) return;
+    try {
+      const updatedCandidates = await sessionApi.resetBuckets(sessionId, token);
+      setCandidates(updatedCandidates);
+    } catch (err) {
+      setError("Failed to reset candidates");
+    }
+  };
+
+  const handleDeleteBucket = async (bucket: ApiBucket) => {
+    if (!sessionId || !token) return;
+    if (
+      window.confirm(
+        `Are you sure you want to delete the "${bucket.name}" bucket? All candidates will be moved to the default bucket.`
+      )
+    ) {
+      try {
+        await sessionApi.deleteBucket(sessionId, bucket.id, token);
+        setBuckets((prev) => prev.filter((b) => b.id !== bucket.id));
+
+        // Find default bucket
+        const defaultBucket = buckets.find(
+          (b) => b.isDefault && b.name === "Good"
+        );
+        if (!defaultBucket) {
+          setError("Default bucket not found");
+          return;
+        }
+
+        // Update candidates state
+        setCandidates((prev) =>
+          prev.map((candidate) =>
+            candidate.bucketId === bucket.id
+              ? { ...candidate, bucketId: defaultBucket.id }
+              : candidate
+          )
+        );
+      } catch (err) {
+        setError("Failed to delete bucket");
       }
     }
   };
@@ -879,29 +834,8 @@ export default function SessionDetails() {
                         <div className="mt-2 text-sm text-green-700">
                           <p>
                             All resume processing jobs have completed. You can
-                            now evaluate the candidates.
+                            now organize candidates into buckets.
                           </p>
-                        </div>
-                        <div className="mt-4">
-                          <button
-                            onClick={fetchRankings}
-                            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-on-dark bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                          >
-                            <svg
-                              className="mr-2 h-5 w-5 text-white"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                              />
-                            </svg>
-                            Evaluate Candidates
-                          </button>
                         </div>
                       </div>
                     </div>
@@ -915,157 +849,64 @@ export default function SessionDetails() {
           <div className="bg-white shadow rounded-lg p-6">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-semibold text-gray-900">
-                Candidate Rankings
+                Candidate Buckets
               </h2>
-
-              {/* Enhanced comparison toolbar */}
-              <div className="flex items-center gap-4">
-                {selectedCandidates.length > 0 && (
-                  <div className="text-sm text-gray-600">
-                    {selectedCandidates.length} candidate
-                    {selectedCandidates.length !== 1 ? "s" : ""} selected
-                  </div>
-                )}
-                {selectedCandidates.length > 1 ? (
-                  <button
-                    onClick={() => setShowComparison(true)}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                  >
-                    <svg
-                      className="mr-2 h-5 w-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                      />
-                    </svg>
-                    Compare Selected ({selectedCandidates.length})
-                  </button>
-                ) : selectedCandidates.length === 1 ? (
-                  <div className="text-sm text-blue-600">
-                    Select at least one more candidate to compare
-                  </div>
-                ) : null}
-              </div>
+              <button
+                onClick={() => setIsAddingBucket(true)}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Add Bucket
+              </button>
             </div>
 
-            {loading ? (
-              <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-                <p className="mt-4 text-gray-600">Evaluating candidates...</p>
+            {/* Add Bucket Dialog */}
+            {isAddingBucket && (
+              <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center">
+                <div className="bg-white rounded-lg p-6 max-w-md w-full">
+                  <h3 className="text-lg font-medium mb-4">
+                    Create New Bucket
+                  </h3>
+                  <form onSubmit={handleAddBucket}>
+                    <input
+                      type="text"
+                      value={newBucketName}
+                      onChange={(e) => setNewBucketName(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter bucket name"
+                    />
+                    <div className="mt-4 flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsAddingBucket(false);
+                          setNewBucketName("");
+                        }}
+                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                      >
+                        Create
+                      </button>
+                    </div>
+                  </form>
+                </div>
               </div>
-            ) : rankings.length > 0 ? (
-              <>
-                {/* Add CandidateMetrics component */}
-                <div className="mb-8">
-                  <CandidateMetrics rankings={rankings} />
-                </div>
-
-                {/* Existing rankings table with selection checkboxes */}
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Select
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Rank
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Candidate
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Contact
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Match Score
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Keyword Score
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {rankings.map((candidate, index) => (
-                        <tr
-                          key={candidate.resumeId}
-                          className={
-                            selectedCandidates.some(
-                              (c) => c.resumeId === candidate.resumeId
-                            )
-                              ? "bg-blue-50 hover:bg-blue-100 transition-colors duration-150"
-                              : "hover:bg-gray-50 transition-colors duration-150"
-                          }
-                        >
-                          <td className="px-3 py-4 whitespace-nowrap">
-                            <input
-                              type="checkbox"
-                              checked={selectedCandidates.some(
-                                (c) => c.resumeId === candidate.resumeId
-                              )}
-                              onChange={() =>
-                                toggleCandidateSelection(candidate)
-                              }
-                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
-                            />
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            #{index + 1}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {candidate.structuredData?.contact_info?.name ||
-                              "N/A"}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <div>
-                              {candidate.structuredData?.contact_info
-                                ?.email && (
-                                <div>
-                                  {candidate.structuredData.contact_info.email}
-                                </div>
-                              )}
-                              {candidate.structuredData?.contact_info
-                                ?.phone && (
-                                <div>
-                                  {candidate.structuredData.contact_info.phone}
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {formatScore(candidate.scores?.totalScore || 0)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {formatScore(candidate.scores?.keywordScore || 0)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <button
-                              onClick={() =>
-                                handleViewResume(candidate.resumeId)
-                              }
-                              className="text-blue-600 hover:text-blue-900 mr-4"
-                            >
-                              View Resume
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            ) : (
-              <p className="text-gray-600">No evaluated resumes yet.</p>
             )}
+
+            {/* Buckets Grid */}
+            <BucketComponent
+              buckets={buckets}
+              candidates={candidates}
+              onDragEnd={handleDragEnd}
+              onDeleteBucket={handleDeleteBucket}
+              onResetBuckets={handleResetBuckets}
+              formatScore={formatScore}
+              onViewResume={handleViewResume}
+            />
           </div>
         </div>
       ) : (
@@ -1466,35 +1307,6 @@ export default function SessionDetails() {
             </div>
           </div>
         </div>
-      )}
-
-      {/* Candidate Comparison Modal */}
-      {showComparison && (
-        <CandidateComparison
-          candidates={selectedCandidates.map((candidate) => ({
-            resumeId: candidate.resumeId,
-            candidateId: candidate.candidateId,
-            name:
-              candidate.structuredData?.contact_info?.name ||
-              "Unknown Candidate",
-            scores: {
-              keywordScore: candidate.scores?.keywordScore || 0,
-              qualitativeScore: candidate.scores?.qualitativeScore || 0,
-              totalScore: candidate.scores?.totalScore || 0,
-            },
-            structuredData: {
-              contact_info: {
-                name: candidate.structuredData?.contact_info?.name || null,
-                email: candidate.structuredData?.contact_info?.email || null,
-                phone: candidate.structuredData?.contact_info?.phone || null,
-              },
-              skills: candidate.structuredData?.skills || {},
-              experience: candidate.structuredData?.experience || [],
-            },
-          }))}
-          requiredSkills={sessionDetails?.requiredSkills || []}
-          onClose={() => setShowComparison(false)}
-        />
       )}
     </div>
   );
