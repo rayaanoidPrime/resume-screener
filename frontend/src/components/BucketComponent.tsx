@@ -5,23 +5,29 @@ import { Bucket, Candidate } from "../services/api";
 interface BucketComponentProps {
   buckets: Bucket[];
   candidates: Candidate[];
+  selectedCandidates: Set<string>;
   onDragEnd: (result: any) => void;
   onDeleteBucket: (bucket: Bucket) => void;
   onResetBuckets: () => void;
   formatScore: (score: number) => string;
   onViewResume: (resumeId: string) => void;
   onAddBucket: () => void;
+  onToggleSelect: (candidate: Candidate) => void;
+  onCompareSelected: () => void;
 }
 
 export default function BucketComponent({
   buckets,
   candidates,
+  selectedCandidates,
   onDragEnd,
   onDeleteBucket,
   onResetBuckets,
   formatScore,
   onViewResume,
   onAddBucket,
+  onToggleSelect,
+  onCompareSelected,
 }: BucketComponentProps) {
   const [sortOrders, setSortOrders] = useState<Record<string, "asc" | "desc">>(
     {}
@@ -53,9 +59,20 @@ export default function BucketComponent({
   return (
     <div className="bg-white shadow rounded-lg p-6">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-semibold text-gray-900">
-          Candidate Buckets
-        </h2>
+        <div className="flex items-center gap-4">
+          <h2 className="text-xl font-semibold text-gray-900">
+            Candidate Buckets
+          </h2>
+          {selectedCandidates.size > 0 && (
+            <button
+              onClick={onCompareSelected}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              disabled={selectedCandidates.size < 2}
+            >
+              Compare Selected ({selectedCandidates.size})
+            </button>
+          )}
+        </div>
         <div className="flex gap-2">
           <button
             onClick={onResetBuckets}
@@ -137,18 +154,35 @@ export default function BucketComponent({
                               }`}
                             >
                               <div className="flex items-start justify-between">
-                                <div>
-                                  <h4 className="font-medium text-gray-900">
-                                    {candidate.resumes[0]?.structuredData
-                                      ?.contact_info?.name ||
-                                      "Unknown Candidate"}
-                                  </h4>
-                                  <p className="text-sm text-gray-500">
-                                    {
-                                      candidate.resumes[0]?.structuredData
-                                        ?.contact_info?.email
-                                    }
-                                  </p>
+                                <div className="flex items-start gap-3">
+                                  <div className="flex items-center h-5">
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedCandidates.has(
+                                        candidate.id
+                                      )}
+                                      onChange={() => onToggleSelect(candidate)}
+                                      disabled={
+                                        !selectedCandidates.has(candidate.id) &&
+                                        selectedCandidates.size >= 5
+                                      }
+                                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
+                                      onClick={(e) => e.stopPropagation()}
+                                    />
+                                  </div>
+                                  <div>
+                                    <h4 className="font-medium text-gray-900">
+                                      {candidate.resumes[0]?.structuredData
+                                        ?.contact_info?.name ||
+                                        "Unknown Candidate"}
+                                    </h4>
+                                    <p className="text-sm text-gray-500">
+                                      {
+                                        candidate.resumes[0]?.structuredData
+                                          ?.contact_info?.email
+                                      }
+                                    </p>
+                                  </div>
                                 </div>
                                 <button
                                   onClick={() =>

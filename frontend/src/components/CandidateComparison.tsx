@@ -1,14 +1,4 @@
 import React from "react";
-import {
-  Radar,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  ResponsiveContainer,
-  Tooltip,
-  Legend,
-} from "recharts";
 import { type Resume } from "../services/api";
 
 interface CandidateComparisonProps {
@@ -35,44 +25,10 @@ const CandidateComparison: React.FC<CandidateComparisonProps> = ({
     return null;
   }
 
-  const scoreData = candidates.map((candidate) => ({
-    name: candidate.name,
-    "Keyword Match": (candidate.scores.keywordScore * 100).toFixed(1),
-    "Total Score": (candidate.scores.totalScore * 100).toFixed(1),
-  }));
-
-  // Format scores for radar chart (convert to percentage)
-  const radarData = [
-    {
-      subject: "Keyword Match",
-      ...candidates.reduce(
-        (acc, c) => ({
-          ...acc,
-          [c.name]: (c.scores.keywordScore * 100).toFixed(1),
-        }),
-        {}
-      ),
-    },
-    {
-      subject: "Total Score",
-      ...candidates.reduce(
-        (acc, c) => ({
-          ...acc,
-          [c.name]: (c.scores.totalScore * 100).toFixed(1),
-        }),
-        {}
-      ),
-    },
-  ];
-
-  // Generate colors for each candidate
-  const colors = ["#8884d8", "#82ca9d", "#ffc658", "#ff8042", "#a4de6c"];
-
   // Calculate skill match percentages
   const getSkillMatchPercentage = (
     candidate: CandidateComparisonProps["candidates"][0]
   ) => {
-    // Get all skills from all categories
     const candidateSkills = Object.values(candidate.structuredData.skills)
       .filter((skills): skills is string[] => Array.isArray(skills))
       .flat()
@@ -121,38 +77,9 @@ const CandidateComparison: React.FC<CandidateComparisonProps> = ({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-auto py-4">
-          {/* Radar Chart */}
-          <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-            <h4 className="text-lg font-semibold text-gray-900 mb-4">
-              Evaluation Metrics Comparison
-            </h4>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <RadarChart outerRadius="80%" data={radarData}>
-                  <PolarGrid />
-                  <PolarAngleAxis dataKey="subject" />
-                  <PolarRadiusAxis angle={30} domain={[0, 100]} />
-                  <Tooltip formatter={(value) => `${value}%`} />
-                  <Legend />
-
-                  {candidates.map((candidate, index) => (
-                    <Radar
-                      key={candidate.resumeId}
-                      name={candidate.name}
-                      dataKey={candidate.name}
-                      stroke={colors[index % colors.length]}
-                      fill={colors[index % colors.length]}
-                      fillOpacity={0.2}
-                    />
-                  ))}
-                </RadarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
+        <div className="flex-1 overflow-auto py-4 space-y-6">
           {/* Skills Comparison */}
-          <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+          <div className="bg-white rounded-lg border border-gray-200 p-4">
             <h4 className="text-lg font-semibold text-gray-900 mb-4">
               Skills Match
             </h4>
@@ -173,7 +100,6 @@ const CandidateComparison: React.FC<CandidateComparisonProps> = ({
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {candidates.map((candidate, index) => {
-                    // Get all skills from all categories
                     const candidateSkills = Object.values(
                       candidate.structuredData.skills
                     )
@@ -249,7 +175,73 @@ const CandidateComparison: React.FC<CandidateComparisonProps> = ({
             </div>
           </div>
 
-          {/* Experience Comparison */}
+          {/* Education Comparison */}
+          <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <h4 className="text-lg font-semibold text-gray-900 mb-4">
+              Education Comparison
+            </h4>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Candidate
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Degree & Field
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Institution
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      GPA
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Dates
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {candidates.map((candidate, index) => (
+                    <React.Fragment key={candidate.resumeId}>
+                      {(candidate.structuredData.education || []).map(
+                        (edu, eduIndex) => (
+                          <tr key={`${candidate.resumeId}-${eduIndex}`}>
+                            {eduIndex === 0 && (
+                              <td
+                                className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"
+                                rowSpan={
+                                  (candidate.structuredData.education || [])
+                                    .length
+                                }
+                              >
+                                {candidate.structuredData.contact_info.name ||
+                                  `Candidate ${index + 1}`}
+                              </td>
+                            )}
+                            <td className="px-6 py-4 text-sm text-gray-900">
+                              {edu?.degree} in {edu?.field}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-900">
+                              {edu?.institution}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-900">
+                              {edu?.gpa || "N/A"}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-900">
+                              {edu?.dates}
+                            </td>
+                          </tr>
+                        )
+                      )}
+                    </React.Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Experience Timeline */}
           <div className="bg-white rounded-lg border border-gray-200 p-4">
             <h4 className="text-lg font-semibold text-gray-900 mb-4">
               Experience Timeline
