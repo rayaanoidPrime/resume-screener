@@ -170,7 +170,7 @@ router.put(
   }
 );
 
-// Get candidates for a session
+// Get all candidates for a session
 router.get(
   "/:sessionId/candidates",
   authenticateToken,
@@ -182,6 +182,7 @@ router.get(
         include: {
           resumes: { include: { evaluation: true } },
           bucket: true,
+          notes: true,
         },
       });
       res.status(200).json(candidates);
@@ -475,6 +476,7 @@ router.post(
         include: {
           resumes: { include: { evaluation: true } },
           bucket: true,
+          notes: true,
         },
       });
 

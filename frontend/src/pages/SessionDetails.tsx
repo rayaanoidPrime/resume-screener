@@ -2,6 +2,7 @@ import { FormEvent, useState, useRef, useEffect } from "react";
 import { useParams, Navigate } from "react-router";
 import { useAuth } from "../context/AuthContext";
 import {
+  Note,
   sessionApi,
   type Bucket as ApiBucket,
   type Candidate as ApiCandidate,
@@ -513,6 +514,17 @@ export default function SessionDetails() {
     return "Meets experience requirements";
   };
 
+  // Function to update notes
+  const updateCandidateNotes = (candidateId: string, updatedNotes: Note[]) => {
+    setCandidates((prevCandidates) =>
+      prevCandidates.map((candidate) =>
+        candidate.id === candidateId
+          ? { ...candidate, notes: updatedNotes }
+          : candidate
+      )
+    );
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       {error && (
@@ -932,6 +944,7 @@ export default function SessionDetails() {
           onAddBucket={() => setIsAddingBucket(true)}
           onToggleSelect={handleToggleSelect}
           onCompareSelected={handleCompareSelected}
+          onUpdateNotes={updateCandidateNotes}
         />
 
         {/* Resume Viewing Modal with SkillsMatchVisualizer */}

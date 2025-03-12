@@ -51,6 +51,7 @@ model Candidate {
   resumes          Resume[]
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+  notes            Note[]
 
   @@index([sessionId])
 }
@@ -87,4 +88,15 @@ model Evaluation {
   qualitativeScore Float
   totalScore       Float
   createdAt        DateTime @default(now())
+}
+
+model Note {
+  id          String    @id @default(uuid())
+  candidateId String
+  content     String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  candidate   Candidate @relation(fields: [candidateId], references: [id])
+
+  @@index([candidateId])
 }

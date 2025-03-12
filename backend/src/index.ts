@@ -4,6 +4,7 @@ import { prisma } from "./prisma/client";
 import authRoutes from "./routes/auth";
 import sessionRoutes from "./routes/sessions";
 import resumeRoutes from "./routes/resumes";
+import notesRoutes from "./routes/notes";
 import cors from "cors";
 
 // Load environment variables
@@ -36,6 +37,7 @@ try {
 app.use("/auth", authRoutes);
 app.use("/sessions", resumeRoutes); // Mount resume routes first
 app.use("/sessions", sessionRoutes); // Then mount session routes
+app.use("/notes", notesRoutes);
 
 // Health check endpoint
 app.get("/health", async (req, res) => {

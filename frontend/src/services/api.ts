@@ -198,6 +198,15 @@ export interface Candidate {
   bucketId: string;
   sessionId: string;
   resumes: Resume[];
+  notes: Note[];
+}
+
+export interface Note {
+  id: string;
+  candidateId: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 const handleApiError = (error: unknown) => {
@@ -412,4 +421,29 @@ export const sessionApi = {
     );
     return response.data;
   },
+};
+
+export const getNotes = async (candidateId: string): Promise<Note[]> => {
+  const response = await api.get(`/notes?candidateId=${candidateId}`);
+  return response.data.data;
+};
+
+export const createNote = async (
+  candidateId: string,
+  content: string
+): Promise<Note> => {
+  const response = await api.post("/notes", { candidateId, content });
+  return response.data.data;
+};
+
+export const updateNote = async (
+  noteId: string,
+  content: string
+): Promise<Note> => {
+  const response = await api.put(`/notes/${noteId}`, { content });
+  return response.data.data;
+};
+
+export const deleteNote = async (noteId: string): Promise<void> => {
+  await api.delete(`/notes/${noteId}`);
 };

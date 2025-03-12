@@ -1,6 +1,8 @@
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { useState } from "react";
-import { Bucket, Candidate } from "../services/api";
+import { Bucket, Candidate, Note } from "../services/api";
+import NoteModal from "./NoteModal";
+import { FaStickyNote, FaEye } from "react-icons/fa";
 
 interface BucketComponentProps {
   buckets: Bucket[];
@@ -14,6 +16,7 @@ interface BucketComponentProps {
   onAddBucket: () => void;
   onToggleSelect: (candidate: Candidate) => void;
   onCompareSelected: () => void;
+  onUpdateNotes: (candidateId: string, updatedNotes: Note[]) => void;
 }
 
 export default function BucketComponent({
@@ -28,10 +31,15 @@ export default function BucketComponent({
   onAddBucket,
   onToggleSelect,
   onCompareSelected,
+  onUpdateNotes,
 }: BucketComponentProps) {
   const [sortOrders, setSortOrders] = useState<Record<string, "asc" | "desc">>(
     {}
   );
+  const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(
+    null
+  );
+  const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
 
   const handleSort = (bucketId: string) => {
     const newOrder = sortOrders[bucketId] === "asc" ? "desc" : "asc";
@@ -54,6 +62,15 @@ export default function BucketComponent({
       const scoreB = b.resumes[0]?.evaluation?.totalScore || 0;
       return order === "asc" ? scoreA - scoreB : scoreB - scoreA;
     });
+  };
+
+  const handleNoteClick = (candidate: Candidate) => {
+    setSelectedCandidate(candidate);
+    setIsNoteModalOpen(true);
+  };
+
+  const handleNoteUpdate = (candidateId: string, updatedNotes: Note[]) => {
+    onUpdateNotes(candidateId, updatedNotes);
   };
 
   return (
@@ -182,16 +199,34 @@ export default function BucketComponent({
                                           ?.contact_info?.email
                                       }
                                     </p>
+                                    <div className="flex items-center gap-1 mt-1 flex-wrap">
+                                      {candidate.notes?.map((note, i) => (
+                                        <span
+                                          key={i}
+                                          className="text-sm text-gray-700 bg-yellow-300 rounded px-1 max-w-xs truncate"
+                                        >
+                                          {note.content.slice(0, 10)}...
+                                        </span>
+                                      ))}
+                                    </div>
                                   </div>
                                 </div>
-                                <button
-                                  onClick={() =>
-                                    onViewResume(candidate.resumes[0]?.id)
-                                  }
-                                  className="text-sm text-blue-600 hover:text-blue-800"
-                                >
-                                  View
-                                </button>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => handleNoteClick(candidate)}
+                                    className="text-blue-600 hover:text-blue-800"
+                                  >
+                                    <FaStickyNote />
+                                  </button>
+                                  <button
+                                    onClick={() =>
+                                      onViewResume(candidate.resumes[0]?.id)
+                                    }
+                                    className="text-blue-600 hover:text-blue-800"
+                                  >
+                                    <FaEye />
+                                  </button>
+                                </div>
                               </div>
                               {candidate.resumes[0]?.evaluation && (
                                 <div className="mt-2 flex items-center gap-2">
@@ -218,6 +253,14 @@ export default function BucketComponent({
           ))}
         </div>
       </DragDropContext>
+
+      {isNoteModalOpen && selectedCandidate && (
+        <NoteModal
+          candidate={selectedCandidate}
+          onClose={() => setIsNoteModalOpen(false)}
+          onUpdateNotes={handleNoteUpdate}
+        />
+      )}
     </div>
   );
 }
