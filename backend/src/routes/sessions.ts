@@ -228,16 +228,24 @@ router.get("/:sessionId/rankings", authenticateToken, async (req, res) => {
     });
 
     // Format the response
-    const rankings = evaluatedResumes.map((resume) => ({
-      resumeId: resume.id,
-      candidateId: resume.candidateId,
-      filePath: resume.filePath,
-      scores: {
-        keywordScore: resume.evaluation?.keywordScore || 0,
-        totalScore: resume.evaluation?.totalScore || 0,
-      },
-      structuredData: resume.structuredData,
-    }));
+    const rankings = evaluatedResumes.map(
+      (resume: {
+        id: any;
+        candidateId: any;
+        filePath: any;
+        evaluation: { keywordScore: any; totalScore: any };
+        structuredData: any;
+      }) => ({
+        resumeId: resume.id,
+        candidateId: resume.candidateId,
+        filePath: resume.filePath,
+        scores: {
+          keywordScore: resume.evaluation?.keywordScore || 0,
+          totalScore: resume.evaluation?.totalScore || 0,
+        },
+        structuredData: resume.structuredData,
+      })
+    );
 
     res.status(200).json(rankings);
   } catch (error) {
