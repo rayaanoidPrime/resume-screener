@@ -115,7 +115,6 @@ export default function SessionDetails() {
     null
   );
   const [saving, setSaving] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [sessionDetails, setSessionDetails] = useState<any>(null);
   const [loadingSession, setLoadingSession] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
