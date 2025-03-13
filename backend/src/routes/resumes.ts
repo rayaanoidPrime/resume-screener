@@ -1,22 +1,15 @@
 import { Router } from "express";
 import multer from "multer";
 import { v4 as uuidv4 } from "uuid";
-import path from "path";
 import { prisma } from "../prisma/client";
 import { authenticateToken } from "../middleware/auth";
 import { resumeQueue } from "../queue/resumeProcessor";
+import { uploadFileToS3, generatePresignedUrl } from "../services/s3";
 
 const router = Router();
 
-// Configure multer for file upload
-const storage = multer.diskStorage({
-  destination: "uploads/",
-  filename: (req, file, cb) => {
-    const uniqueId = uuidv4();
-    const ext = path.extname(file.originalname);
-    cb(null, `${uniqueId}${ext}`);
-  },
-});
+// Configure multer for memory storage instead of disk storage
+const storage = multer.memoryStorage();
 
 const fileFilter = (
   req: Express.Request,
@@ -64,8 +57,12 @@ router.post(
 
       // Add each file to the processing queue
       const jobPromises = files.map(async (file) => {
-        // Ensure file path is absolute
-        const absolutePath = path.resolve(file.path);
+        // Upload file to S3
+        const s3Key = await uploadFileToS3(
+          file.buffer,
+          `${uuidv4()}-${file.originalname}`,
+          file.mimetype
+        );
 
         // Create a candidate record first
         const candidate = await prisma.candidate.create({
@@ -97,11 +94,11 @@ router.post(
           throw new Error("Session not found");
         }
 
-        // Create a resume record
+        // Create a resume record with S3 key instead of local file path
         const resume = await prisma.resume.create({
           data: {
             candidateId: candidate.id,
-            filePath: file.path,
+            filePath: s3Key, // Store S3 key instead of local file path
             status: "processing",
           },
         });
@@ -120,16 +117,16 @@ router.post(
             educationRequired: session.educationRequired,
             educationPreferred: session.educationPreferred,
           },
-          filePath: absolutePath,
+          s3Key, // Pass S3 key instead of file path
           sessionId,
           mimeType: file.mimetype,
-          resumeId: resume.id, // Pass resumeId to the queue
+          resumeId: resume.id,
         });
 
         return {
           jobId: job.id,
-          resumeId: resume.id, // Include resumeId in response
-          filePath: file.path,
+          resumeId: resume.id,
+          s3Key,
           mimeType: file.mimetype,
         };
       });
@@ -142,13 +139,73 @@ router.post(
         jobIds,
         files: results.map((r) => ({
           jobId: r.jobId,
-          resumeId: r.resumeId, // Include resumeId in response
-          filePath: r.filePath,
+          resumeId: r.resumeId,
+          s3Key: r.s3Key,
           mimeType: r.mimeType,
         })),
       });
     } catch (error) {
       console.error("Resume upload error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+);
+
+// Get resume details with presigned URL
+router.get(
+  "/:sessionId/resumes/:resumeId",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { sessionId, resumeId } = req.params;
+
+      // First check if the session exists and belongs to the user
+      const session = await prisma.session.findUnique({
+        where: { id: sessionId },
+        select: { id: true, userId: true },
+      });
+
+      if (!session) {
+        res.status(404).json({ error: "Session not found" });
+        return;
+      }
+
+      if (session.userId !== req.user?.id) {
+        res.status(403).json({ error: "Unauthorized access to session" });
+        return;
+      }
+
+      // Get resume with its evaluation
+      const resume = await prisma.resume.findUnique({
+        where: { id: resumeId },
+        include: {
+          evaluation: true,
+        },
+      });
+
+      if (!resume) {
+        res.status(404).json({ error: "Resume not found" });
+        return;
+      }
+
+      // Generate presigned URL for the resume file
+      const presignedUrl = await generatePresignedUrl(resume.filePath);
+
+      // Format the response
+      const response = {
+        s3Key: resume.filePath,
+        presignedUrl,
+        extractedText: resume.extractedText || "",
+        structuredData: resume.structuredData,
+        metricScores: {
+          keywordScore: resume.evaluation?.keywordScore || 0,
+          totalScore: resume.evaluation?.totalScore || 0,
+        },
+      };
+
+      res.status(200).json(response);
+    } catch (error) {
+      console.error("Resume details retrieval error:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   }

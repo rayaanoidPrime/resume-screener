@@ -2,11 +2,11 @@ import Queue from "bull";
 import { prisma } from "../prisma/client";
 import pdfParse from "pdf-parse";
 import mammoth from "mammoth";
-import fs from "fs/promises";
 import { createAIProvider } from "../ai/providers";
 import { aiConfig } from "../ai/config";
 import { parseResumePrompt } from "../ai/prompts";
 import { evaluateResume } from "../services/evaluation";
+import { getFileFromS3 } from "../services/s3";
 
 export interface ResumeData {
   contact_info: {
@@ -80,7 +80,7 @@ const resumeQueue = new Queue(
 
 // Define job data interface
 export interface ResumeJobData {
-  filePath: string;
+  s3Key: string;
   sessionId: string;
   mimeType: string;
   resumeId: string;
@@ -99,15 +99,12 @@ export interface ResumeJobData {
   };
 }
 
-async function extractPdfText(filePath: string): Promise<string> {
+async function extractPdfText(fileBuffer: Buffer): Promise<string> {
   try {
-    console.log(`Extracting text from PDF: ${filePath}`);
+    console.log("Extracting text from PDF buffer");
 
-    // Read the file
-    const dataBuffer = await fs.readFile(filePath);
-
-    // Parse the PDF
-    const data = await pdfParse(dataBuffer);
+    // Parse the PDF buffer
+    const data = await pdfParse(fileBuffer);
 
     console.log(
       `Successfully extracted ${data.text.length} characters from PDF`
@@ -120,17 +117,14 @@ async function extractPdfText(filePath: string): Promise<string> {
 }
 
 // Extract text from DOCX
-async function extractDocxText(filePath: string): Promise<string> {
+async function extractDocxText(fileBuffer: Buffer): Promise<string> {
   try {
-    // Read the file as a buffer
-    const buffer = await fs.readFile(filePath);
-
     // Ensure we have a valid buffer
-    if (!Buffer.isBuffer(buffer)) {
+    if (!Buffer.isBuffer(fileBuffer)) {
       throw new Error("Invalid file data: not a buffer");
     }
 
-    const result = await mammoth.extractRawText({ buffer });
+    const result = await mammoth.extractRawText({ buffer: fileBuffer });
     return result.value.trim();
   } catch (error) {
     console.error("DOCX extraction error:", error);
@@ -172,7 +166,7 @@ async function parseResume(
 // Process jobs
 resumeQueue.process(async (job) => {
   const {
-    filePath,
+    s3Key,
     sessionId,
     mimeType,
     job: jobData,
@@ -182,20 +176,21 @@ resumeQueue.process(async (job) => {
     // Update progress to 25%
     await job.progress(25);
 
-    // Check if file exists and is readable
+    // Get file from S3
+    let fileBuffer: Buffer;
     try {
-      await fs.access(filePath, fs.constants.R_OK);
-    } catch (error) {
-      throw new Error(`File not found or not readable at path: ${filePath}`);
+      fileBuffer = await getFileFromS3(s3Key);
+    } catch (error: any) {
+      throw new Error(`Failed to get file from S3: ${error.message}`);
     }
 
     // Extract text based on file type
     let extractedText = "";
     try {
       if (mimeType === "application/pdf") {
-        extractedText = await extractPdfText(filePath);
+        extractedText = await extractPdfText(fileBuffer);
       } else {
-        extractedText = await extractDocxText(filePath);
+        extractedText = await extractDocxText(fileBuffer);
       }
     } catch (error) {
       console.error("Text extraction error:", error);
