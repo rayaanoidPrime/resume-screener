@@ -22,7 +22,7 @@ app.use(express.json());
 app.use("/auth", authRoutes);
 app.use("/sessions", resumeRoutes);
 app.use("/sessions", sessionRoutes);
-app.use("/sessions", notesRoutes);
+app.use("/notes", notesRoutes);
 
 // Error handling middleware
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {

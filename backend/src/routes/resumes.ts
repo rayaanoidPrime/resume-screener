@@ -5,6 +5,7 @@ import { prisma } from "../prisma/client";
 import { authenticateToken } from "../middleware/auth";
 import { resumeQueue } from "../queue/resumeProcessor";
 import { uploadFileToS3, generatePresignedUrl } from "../services/s3";
+import { ResumeJobData } from "../queue/resumeProcessor";
 
 const router = Router();
 
@@ -38,7 +39,7 @@ const upload = multer({
 router.post(
   "/:sessionId/resumes",
   authenticateToken,
-  upload.array("files", 10), // Allow up to 10 files
+  upload.array("files", 100), // Allow up to 100 files
   async (req, res) => {
     try {
       const { sessionId } = req.params;
@@ -146,66 +147,6 @@ router.post(
       });
     } catch (error) {
       console.error("Resume upload error:", error);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  }
-);
-
-// Get resume details with presigned URL
-router.get(
-  "/:sessionId/resumes/:resumeId",
-  authenticateToken,
-  async (req, res) => {
-    try {
-      const { sessionId, resumeId } = req.params;
-
-      // First check if the session exists and belongs to the user
-      const session = await prisma.session.findUnique({
-        where: { id: sessionId },
-        select: { id: true, userId: true },
-      });
-
-      if (!session) {
-        res.status(404).json({ error: "Session not found" });
-        return;
-      }
-
-      if (session.userId !== req.user?.id) {
-        res.status(403).json({ error: "Unauthorized access to session" });
-        return;
-      }
-
-      // Get resume with its evaluation
-      const resume = await prisma.resume.findUnique({
-        where: { id: resumeId },
-        include: {
-          evaluation: true,
-        },
-      });
-
-      if (!resume) {
-        res.status(404).json({ error: "Resume not found" });
-        return;
-      }
-
-      // Generate presigned URL for the resume file
-      const presignedUrl = await generatePresignedUrl(resume.filePath);
-
-      // Format the response
-      const response = {
-        s3Key: resume.filePath,
-        presignedUrl,
-        extractedText: resume.extractedText || "",
-        structuredData: resume.structuredData,
-        metricScores: {
-          keywordScore: resume.evaluation?.keywordScore || 0,
-          totalScore: resume.evaluation?.totalScore || 0,
-        },
-      };
-
-      res.status(200).json(response);
-    } catch (error) {
-      console.error("Resume details retrieval error:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   }

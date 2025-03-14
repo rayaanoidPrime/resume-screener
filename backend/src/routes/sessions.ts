@@ -193,67 +193,6 @@ router.get(
   }
 );
 
-// Get ranked list of candidates/resumes for a session
-router.get("/:sessionId/rankings", authenticateToken, async (req, res) => {
-  try {
-    const { sessionId } = req.params;
-
-    // Get session to verify it exists
-    const session = await prisma.session.findUnique({
-      where: { id: sessionId },
-      select: { id: true },
-    });
-
-    if (!session) {
-      res.status(404).json({ error: "Session not found" });
-      return;
-    }
-
-    // Get all evaluated resumes for the session with their evaluations
-    const evaluatedResumes = await prisma.resume.findMany({
-      where: {
-        candidate: { sessionId },
-        status: "processed",
-        evaluation: { isNot: null }, // Only get evaluated resumes
-      },
-      include: {
-        candidate: true,
-        evaluation: true,
-      },
-      orderBy: {
-        evaluation: {
-          totalScore: "desc", // Sort by total score descending
-        },
-      },
-    });
-
-    // Format the response
-    const rankings = evaluatedResumes.map(
-      (resume: {
-        id: any;
-        candidateId: any;
-        filePath: any;
-        evaluation: { keywordScore: any; totalScore: any };
-        structuredData: any;
-      }) => ({
-        resumeId: resume.id,
-        candidateId: resume.candidateId,
-        filePath: resume.filePath,
-        scores: {
-          keywordScore: resume.evaluation?.keywordScore || 0,
-          totalScore: resume.evaluation?.totalScore || 0,
-        },
-        structuredData: resume.structuredData,
-      })
-    );
-
-    res.status(200).json(rankings);
-  } catch (error) {
-    console.error("Rankings retrieval error:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
 // Get session details
 router.get("/:sessionId", authenticateToken, async (req, res) => {
   try {
